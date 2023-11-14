@@ -29,13 +29,30 @@ type BasicAuthenticatorSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of BasicAuthenticator. Edit basicauthenticator_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:Required
+	// Type is used to determine that nginx should be sidercar or deployment
+	Type string `json:"type,omitempty"`
+	// +kubebuilder:validation:Optional
+	Replicas int `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Optional
+	Selector metav1.LabelSelector `json:"selector,omitempty"`
+	// +kubebuilder:validation:Optional
+	AppPort int `json:"appPort"`
+	// +kubebuilder:validation:Optional
+	AppService    string `json:"appService"`
+	AdaptiveScale bool   `json:"adaptiveScale"`
+	// +kubebuilder:validation:Required
+	AuthenticatorPort int `json:"authenticatorPort"`
+	// +kubebuilder:validation:Optional
+	CredentialsSecretRef string `json:"credentialsSecretRef"`
 }
 
 // BasicAuthenticatorStatus defines the observed state of BasicAuthenticator
 type BasicAuthenticatorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	ReadyReplicas int    `json:"readyReplicas"`
+	Reason        string `json:"reason"`
 }
 
 //+kubebuilder:object:root=true
