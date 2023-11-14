@@ -9,4 +9,13 @@ metadata:
     app.kubernetes.io/created-by: basicauthenticator
   name: basicauthenticator-sample
 spec:
-  # TODO(user): Add fields here
+  type: deployment
+  replicas: 5
+  selector:
+    matchLabels:
+      foo: bar
+  appPort: 8080
+  appService: test.ns.svc
+  adaptiveScale: false
+  authenticatorPort: 8080
+  credentialsSecretRef: folan
