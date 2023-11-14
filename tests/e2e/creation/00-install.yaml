@@ -1,0 +1,21 @@
+apiVersion: authenticator.snappcloud.io/v1alpha1
+kind: BasicAuthenticator
+metadata:
+  labels:
+    app.kubernetes.io/name: basicauthenticator
+    app.kubernetes.io/instance: basicauthenticator-sample
+    app.kubernetes.io/part-of: basicauthenticator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: basicauthenticator
+  name: basicauthenticator-sample
+spec:
+  type: deployment
+  replicas: 5
+  selector:
+    matchLabels:
+      foo: bar
+  appPort: 8080
+  appService: test.ns.svc
+  adaptiveScale: false
+  authenticatorPort: 8080
+  credentialsSecretRef: folan
