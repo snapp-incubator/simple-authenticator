@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/sinamna/BasicAthenticator/internal/config"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -52,8 +53,10 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var customConfigPath string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&customConfigPath, "custom-config-path", "./custom/config.yaml", "the path to custom config.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -64,7 +67,10 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
+	customConfig, err := config.InitConfig(customConfigPath)
+	if err != nil {
+		setupLog.Error(err, "could not load custom config")
+	}
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -90,10 +96,15 @@ func main() {
 	}
 
 	if err = (&controller.BasicAuthenticatorReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		CustomConfig: customConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BasicAuthenticator")
+		os.Exit(1)
+	}
+	if err = (&authenticatorv1alpha1.BasicAuthenticator{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "BasicAuthenticator")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

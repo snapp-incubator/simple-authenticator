@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"github.com/sinamna/BasicAthenticator/internal/config"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,12 +32,14 @@ import (
 // BasicAuthenticatorReconciler reconciles a BasicAuthenticator object
 type BasicAuthenticatorReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme       *runtime.Scheme
+	CustomConfig *config.CustomConfig
 }
 
 //+kubebuilder:rbac:groups=authenticator.snappcloud.io,resources=basicauthenticators,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=authenticator.snappcloud.io,resources=basicauthenticators/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=authenticator.snappcloud.io,resources=basicauthenticators/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -49,7 +53,22 @@ type BasicAuthenticatorReconciler struct {
 func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("reconcile triggered")
-	// TODO(user): your logic here
+
+	basicAuthenticator := &authenticatorv1alpha1.BasicAuthenticator{}
+	err := r.Get(ctx, req.NamespacedName, basicAuthenticator)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("Resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get BasicAuthenticator")
+		return ctrl.Result{}, err
+	}
+
+	//TODO:handle deletion scenario
+	if basicAuthenticator.GetDeletionTimestamp() != nil {
+		//pass
+	}
 
 	return ctrl.Result{}, nil
 }
