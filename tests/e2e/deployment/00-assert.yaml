@@ -1,0 +1,12 @@
+apiVersion: authenticator.snappcloud.io/v1alpha1
+kind: BasicAuthenticator
+metadata:
+  name: basicauthenticator-sample
+status:
+  readyReplicas: 3
+---
+apiVersion: apps/v1
+kind: deployment
+metadata:
+  name: basicauthenticator-sample-nginx
+
