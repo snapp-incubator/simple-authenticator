@@ -19,9 +19,11 @@ package controller
 import (
 	"context"
 	"github.com/sinamna/BasicAthenticator/internal/config"
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -64,12 +66,46 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logger.Error(err, "Failed to get BasicAuthenticator")
 		return ctrl.Result{}, err
 	}
-
-	//TODO:handle deletion scenario
-	if basicAuthenticator.GetDeletionTimestamp() != nil {
-		//pass
+	basicAuthenticator.Status.Ready = true
+	err = r.Status().Update(ctx, basicAuthenticator)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
+	if err := r.Get(ctx, req.NamespacedName, basicAuthenticator); err != nil {
+		logger.Error(err, "failed to refetch")
+		return ctrl.Result{}, err
+	}
+	////TODO:handle deletion scenario and clean up
+	//if basicAuthenticator.GetDeletionTimestamp() != nil {
+	//	// clean up
+	//}
+
+	credentialName := basicAuthenticator.Spec.CredentialsSecretRef
+	var credentialSecret *corev1.Secret
+	if credentialName == "" {
+		//create secret
+		secret := r.CreateCredentials(basicAuthenticator)
+		// update basic auth
+		err := r.Create(ctx, secret)
+		if err != nil {
+			logger.Error(err, "failed to create new secret")
+			return ctrl.Result{}, err
+		}
+		credentialName = secret.Name
+		credentialSecret = secret
+	} else {
+		err := r.Get(ctx, types.NamespacedName{Name: credentialName, Namespace: basicAuthenticator.Namespace}, credentialSecret)
+		if err != nil {
+			logger.Error(err, "failed to fetch secret")
+			return ctrl.Result{}, err
+		}
+	}
+
+	//create configmap
+	nginxConfig := r.CreateNginxConfigmap(basicAuthenticator)
+
+	//create deployment or sidecar
 	return ctrl.Result{}, nil
 }
 
@@ -77,5 +113,7 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *BasicAuthenticatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&authenticatorv1alpha1.BasicAuthenticator{}).
+		Owns(&appv1.Deployment{}).
+		Owns(&corev1.Secret{}).
 		Complete(r)
 }

@@ -3,15 +3,19 @@ package controller
 import (
 	"fmt"
 	"github.com/sinamna/BasicAthenticator/api/v1alpha1"
+	"github.com/sinamna/BasicAthenticator/pkg/hash"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
 
 const (
 	ConfigMountPath = "/etc/nginx/conf.d"
-	template        = `
+	SecretMountPath = "/etc/secret/credentials"
+	SecretName      = "credentials"
+	//TODO: maybe using better templating?
+	template = ` 
 	server {
 		listen AUTHENTICATOR_PORT;
 		location / {
@@ -24,7 +28,7 @@ const (
 )
 
 // TODO: come up with better name that "nginx"
-func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string) *appsv1.Deployment {
+func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string) *appsv1.Deployment {
 	nginxImageAddress := "nginx/nginx"
 	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.Image != "" {
 		nginxImageAddress = r.CustomConfig.WebserverConf.Image
@@ -41,6 +45,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 
 	labels := map[string]string{"app": deploymentName}
 
+	//TODO: mount secret as volume
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   deploymentName,
@@ -49,37 +54,49 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   deploymentName,
 					Labels: labels,
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name:  nginxContainerName,
 							Image: nginxImageAddress,
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: authenticatorPort,
 								},
 							},
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      configMapName,
 									MountPath: ConfigMountPath,
 								},
+								{
+									Name:      SecretName,
+									MountPath: SecretMountPath,
+								},
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: configMapName,
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: configMapName,
 									},
+								},
+							},
+						},
+						{
+							Name: SecretName,
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: credentialName,
 								},
 							},
 						},
@@ -92,17 +109,16 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 	return deploy
 }
 
-func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator, secretRef string) *v1.ConfigMap {
-	appPort := int32(basicAuthenticator.Spec.AppPort)
+func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.ConfigMap {
 	configmapName := fmt.Sprintf("%s-nginx-conf", basicAuthenticator.Name)
 	labels := map[string]string{
 		"app": basicAuthenticator.Name,
 	}
-	nginxConf := FillTemplate(template, secretRef, basicAuthenticator)
+	nginxConf := FillTemplate(template, SecretMountPath, basicAuthenticator)
 	data := map[string]string{
 		"nginx.conf": nginxConf,
 	}
-	configMap := &v1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   configmapName,
 			Labels: labels,
@@ -110,6 +126,21 @@ func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *
 		Data: data,
 	}
 	return configMap
+}
+
+func (r *BasicAuthenticatorReconciler) CreateCredentials(authenticator *v1alpha1.BasicAuthenticator) *corev1.Secret {
+	username, password := hash.GenerateRandomString(20), hash.GenerateRandomString(20)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s-credentials", authenticator.Name),
+		},
+		StringData: map[string]string{
+			"username": username,
+			"password": password,
+		},
+	}
+	return secret
 }
 
 func FillTemplate(template string, secretPath string, authenticator *v1alpha1.BasicAuthenticator) string {
