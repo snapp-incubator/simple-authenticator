@@ -140,14 +140,15 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
+
 	if isSidecar {
 		deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, foundConfigmap.Name, credentialName)
 		if err != nil {
 			logger.Error(err, "failed to inject into deployments")
 			return ctrl.Result{}, err
 		}
-		for _, deploy := range deploymentsToUpdate.Items {
-			err := r.Update(ctx, &deploy)
+		for _, deploy := range deploymentsToUpdate {
+			err := r.Update(ctx, deploy)
 			if err != nil {
 				logger.Error(err, "failed to update injected deployments")
 				return ctrl.Result{}, err

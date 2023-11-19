@@ -147,7 +147,7 @@ func (r *BasicAuthenticatorReconciler) CreateCredentials(authenticator *v1alpha1
 	return secret
 }
 
-func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string) (*appsv1.DeploymentList, error) {
+func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string) ([]*appsv1.Deployment, error) {
 	nginxImageAddress := "curlimages/curl:latest"
 	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.Image != "" {
 		nginxImageAddress = r.CustomConfig.WebserverConf.Image
@@ -164,12 +164,20 @@ func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthen
 		&deploymentList,
 		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(basicAuthenticator.Spec.Selector.MatchLabels)},
 		client.InNamespace(basicAuthenticator.Namespace)); err != nil {
-		return &appsv1.DeploymentList{}, err
+		return nil, err
 	}
+	resultDeployments := make([]*appsv1.Deployment, 0)
+
 	for _, deployment := range deploymentList.Items {
-		deployment.ObjectMeta.Annotations = map[string]string{
-			"injected-by": basicAuthenticator.Name,
+		// we can use revision number to update container config
+		_, isInjected := deployment.ObjectMeta.Annotations["basic.authenticator.inject/revision"]
+		if isInjected {
+			continue
 		}
+		deployment.ObjectMeta.Annotations = map[string]string{
+			"basic.authenticator.inject/revision": "1",
+		}
+
 		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, corev1.Container{
 			Name:  nginxContainerName,
 			Image: nginxImageAddress,
@@ -207,8 +215,9 @@ func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthen
 				},
 			},
 		})
+		resultDeployments = append(resultDeployments, &deployment)
 	}
-	return &deploymentList, nil
+	return resultDeployments, nil
 }
 
 func FillTemplate(template string, secretPath string, authenticator *v1alpha1.BasicAuthenticator) string {
