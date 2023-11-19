@@ -47,6 +47,8 @@ spec:
               credentialsSecretRef:
                 type: string
               replicas:
+                maximum: 5
+                minimum: 1
                 type: integer
               selector:
                 description: A label selector is a label query over a set of resources.
@@ -100,9 +102,11 @@ spec:
                 description: Foo is an example field of BasicAuthenticator. Edit basicauthenticator_types.go
                   to remove/update Type is used to determine that nginx should be
                   sidercar or deployment
+                enum:
+                - sidecar
+                - deployment
                 type: string
             required:
-            - adaptiveScale
             - authenticatorPort
             type: object
           status:

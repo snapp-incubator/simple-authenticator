@@ -35,14 +35,14 @@ type BasicAuthenticatorSpec struct {
 	Type string `json:"type,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Maximum=5
-	// +kubebuilder:validation:Maximum=1
+	// +kubebuilder:validation:Minimum=1
 	Replicas int `json:"replicas,omitempty"`
 	// +kubebuilder:validation:Optional
 	Selector metav1.LabelSelector `json:"selector,omitempty"`
 	// +kubebuilder:validation:Optional
 	AppPort int `json:"appPort"`
 	// +kubebuilder:validation:Optional
-	AppService string `json:"appService";`
+	AppService string `json:"appService"`
 	// +kubebuilder:validation:Optional
 	AdaptiveScale bool `json:"adaptiveScale"`
 	// +kubebuilder:validation:Required

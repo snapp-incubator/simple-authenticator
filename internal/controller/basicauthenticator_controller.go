@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -66,46 +67,115 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logger.Error(err, "Failed to get BasicAuthenticator")
 		return ctrl.Result{}, err
 	}
-	basicAuthenticator.Status.Ready = true
-	err = r.Status().Update(ctx, basicAuthenticator)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
 	if err := r.Get(ctx, req.NamespacedName, basicAuthenticator); err != nil {
 		logger.Error(err, "failed to refetch")
 		return ctrl.Result{}, err
 	}
-	////TODO:handle deletion scenario and clean up
+
+	//TODO:handle deletion scenario and clean up
 	//if basicAuthenticator.GetDeletionTimestamp() != nil {
 	//	// clean up
 	//}
-
+	err = r.Status().Update(ctx, basicAuthenticator)
+	if err != nil {
+		logger.Error(err, "failed to update status")
+		return ctrl.Result{}, err
+	}
 	credentialName := basicAuthenticator.Spec.CredentialsSecretRef
-	var credentialSecret *corev1.Secret
+	var credentialSecret corev1.Secret
+
 	if credentialName == "" {
 		//create secret
-		secret := r.CreateCredentials(basicAuthenticator)
-		// update basic auth
-		err := r.Create(ctx, secret)
-		if err != nil {
-			logger.Error(err, "failed to create new secret")
-			return ctrl.Result{}, err
+		newSecret := r.CreateCredentials(basicAuthenticator)
+		err = r.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, &credentialSecret)
+		if err != nil && errors.IsNotFound(err) {
+			// update basic auth
+			err := r.Create(ctx, newSecret)
+			if err != nil {
+				logger.Error(err, "failed to create new secret")
+				return ctrl.Result{}, err
+			}
+			if err := ctrl.SetControllerReference(basicAuthenticator, newSecret, r.Scheme); err != nil {
+				logger.Error(err, "failed to set secrets owner")
+				return ctrl.Result{}, err
+			}
 		}
-		credentialName = secret.Name
-		credentialSecret = secret
+		credentialName = newSecret.Name
+		credentialSecret = *newSecret
 	} else {
-		err := r.Get(ctx, types.NamespacedName{Name: credentialName, Namespace: basicAuthenticator.Namespace}, credentialSecret)
+		err := r.Get(ctx, types.NamespacedName{Name: credentialName, Namespace: basicAuthenticator.Namespace}, &credentialSecret)
 		if err != nil {
 			logger.Error(err, "failed to fetch secret")
 			return ctrl.Result{}, err
 		}
 	}
 
-	//create configmap
 	nginxConfig := r.CreateNginxConfigmap(basicAuthenticator)
+	var foundConfigmap corev1.ConfigMap
+	err = r.Get(ctx, types.NamespacedName{Name: nginxConfig.Name, Namespace: basicAuthenticator.Namespace}, &foundConfigmap)
+	if err != nil && errors.IsNotFound(err) {
+		err := r.Create(ctx, nginxConfig)
+		if err != nil {
+			logger.Error(err, "failed to create new configmap")
+			return ctrl.Result{}, err
+		}
+		if err := ctrl.SetControllerReference(basicAuthenticator, nginxConfig, r.Scheme); err != nil {
+			logger.Error(err, "failed to set configmap owner")
+			return ctrl.Result{}, err
+		}
+	} else if err != nil {
+		logger.Error(err, "failed to fetch configmap")
+		return ctrl.Result{}, err
+	} else {
+		if !reflect.DeepEqual(nginxConfig.Data, foundConfigmap.Data) {
+			logger.Info("updating configmap")
+			foundConfigmap.Data = nginxConfig.Data
+			err := r.Update(ctx, &foundConfigmap)
+			if err != nil {
+				logger.Error(err, "failed to update configmap")
+				return ctrl.Result{}, err
+			}
+		}
+	}
 
-	//create deployment or sidecar
+	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
+	if isSidecar {
+		// handle sidecar
+	} else {
+		newDeployment := r.CreateNginxDeployment(basicAuthenticator, foundConfigmap.Name, credentialName)
+		foundDeployment := &appv1.Deployment{}
+		err = r.Get(ctx, types.NamespacedName{Name: newDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
+		if err != nil && errors.IsNotFound(err) {
+			//create deployment
+			err := r.Create(ctx, newDeployment)
+			if err != nil {
+				logger.Error(err, "failed to create new deployment")
+				return ctrl.Result{}, err
+			}
+			if err := ctrl.SetControllerReference(basicAuthenticator, newDeployment, r.Scheme); err != nil {
+				logger.Error(err, "failed to set deployment owner")
+				return ctrl.Result{}, err
+			}
+		} else if err != nil {
+			if err != nil {
+				logger.Error(err, "failed to fetch deployment")
+				return ctrl.Result{}, err
+			}
+		} else {
+			//update deployment
+			if !reflect.DeepEqual(newDeployment.Spec, foundDeployment.Spec) {
+				logger.Info("updating deployment")
+				foundDeployment.Spec = newDeployment.Spec
+				err := r.Update(ctx, foundDeployment)
+				if err != nil {
+					logger.Error(err, "failed to update deployment")
+					return ctrl.Result{}, err
+				}
+			}
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 

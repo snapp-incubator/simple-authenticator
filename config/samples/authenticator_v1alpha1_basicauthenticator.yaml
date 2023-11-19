@@ -10,12 +10,8 @@ metadata:
   name: basicauthenticator-sample
 spec:
   type: deployment
-  replicas: 5
-  selector:
-    matchLabels:
-      foo: bar
+  replicas: 2
   appPort: 8080
   appService: test.ns.svc
   adaptiveScale: false
   authenticatorPort: 8080
-  credentialsSecretRef: folan

@@ -67,10 +67,7 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	customConfig, err := config.InitConfig(customConfigPath)
-	if err != nil {
-		setupLog.Error(err, "could not load custom config")
-	}
+	customConfig, _ := config.InitConfig(customConfigPath)
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -103,10 +100,10 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "BasicAuthenticator")
 		os.Exit(1)
 	}
-	if err = (&authenticatorv1alpha1.BasicAuthenticator{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "BasicAuthenticator")
-		os.Exit(1)
-	}
+	//if err = (&authenticatorv1alpha1.BasicAuthenticator{}).SetupWebhookWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create webhook", "webhook", "BasicAuthenticator")
+	//	os.Exit(1)
+	//}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

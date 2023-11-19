@@ -13,7 +13,6 @@ import (
 const (
 	ConfigMountPath = "/etc/nginx/conf.d"
 	SecretMountPath = "/etc/secret/credentials"
-	SecretName      = "credentials"
 	//TODO: maybe using better templating?
 	template = ` 
 	server {
@@ -48,8 +47,9 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 	//TODO: mount secret as volume
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   deploymentName,
-			Labels: labels,
+			Name:      deploymentName,
+			Namespace: basicAuthenticator.Namespace,
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -75,7 +75,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 									MountPath: ConfigMountPath,
 								},
 								{
-									Name:      SecretName,
+									Name:      credentialName,
 									MountPath: SecretMountPath,
 								},
 							},
@@ -93,7 +93,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 							},
 						},
 						{
-							Name: SecretName,
+							Name: credentialName,
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName: credentialName,
@@ -120,8 +120,9 @@ func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *
 	}
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   configmapName,
-			Labels: labels,
+			Name:      configmapName,
+			Namespace: basicAuthenticator.Namespace,
+			Labels:    labels,
 		},
 		Data: data,
 	}
@@ -133,7 +134,8 @@ func (r *BasicAuthenticatorReconciler) CreateCredentials(authenticator *v1alpha1
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-credentials", authenticator.Name),
+			Name:      fmt.Sprintf("%s-credentials", authenticator.Name),
+			Namespace: authenticator.Namespace,
 		},
 		StringData: map[string]string{
 			"username": username,
