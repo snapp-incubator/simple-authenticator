@@ -67,7 +67,10 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	customConfig, _ := config.InitConfig(customConfigPath)
+	customConfig, err := config.InitConfig(customConfigPath)
+	if err != nil {
+		setupLog.Info("custom config not loaded")
+	}
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,

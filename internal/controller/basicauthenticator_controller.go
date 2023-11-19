@@ -43,6 +43,7 @@ type BasicAuthenticatorReconciler struct {
 //+kubebuilder:rbac:groups=authenticator.snappcloud.io,resources=basicauthenticators/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=authenticator.snappcloud.io,resources=basicauthenticators/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:resources=secret,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -56,7 +57,7 @@ type BasicAuthenticatorReconciler struct {
 func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("reconcile triggered")
-
+	logger.Info(req.String())
 	basicAuthenticator := &authenticatorv1alpha1.BasicAuthenticator{}
 	err := r.Get(ctx, req.NamespacedName, basicAuthenticator)
 	if err != nil {
@@ -84,7 +85,6 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	credentialName := basicAuthenticator.Spec.CredentialsSecretRef
 	var credentialSecret corev1.Secret
-
 	if credentialName == "" {
 		//create secret
 		newSecret := r.CreateCredentials(basicAuthenticator)
@@ -141,7 +141,18 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
 	if isSidecar {
-		// handle sidecar
+		deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, foundConfigmap.Name, credentialName)
+		if err != nil {
+			logger.Error(err, "failed to inject into deployments")
+			return ctrl.Result{}, err
+		}
+		for _, deploy := range deploymentsToUpdate.Items {
+			err := r.Update(ctx, &deploy)
+			if err != nil {
+				logger.Error(err, "failed to update injected deployments")
+				return ctrl.Result{}, err
+			}
+		}
 	} else {
 		newDeployment := r.CreateNginxDeployment(basicAuthenticator, foundConfigmap.Name, credentialName)
 		foundDeployment := &appv1.Deployment{}
