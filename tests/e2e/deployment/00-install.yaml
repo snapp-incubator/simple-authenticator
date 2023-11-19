@@ -10,7 +10,7 @@ metadata:
   name: basicauthenticator-sample
 spec:
   type: deployment
-  replicas: 3
+  replicas: 1
   appPort: 8080
   appService: test.ns.svc
   adaptiveScale: false

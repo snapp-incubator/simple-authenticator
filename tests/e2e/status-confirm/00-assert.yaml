@@ -2,4 +2,6 @@ apiVersion: authenticator.snappcloud.io/v1alpha1
 kind: BasicAuthenticator
 metadata:
   name: basicauthenticator-sample
+status:
+  ready: true
 
