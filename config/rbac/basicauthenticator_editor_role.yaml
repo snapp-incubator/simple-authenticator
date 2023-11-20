@@ -1,0 +1,31 @@
+# permissions for end users to edit basicauthenticators.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: basicauthenticator-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: basicauthenticator
+    app.kubernetes.io/part-of: basicauthenticator
+    app.kubernetes.io/managed-by: kustomize
+  name: basicauthenticator-editor-role
+rules:
+- apiGroups:
+  - authenticator.snappcloud.io
+  resources:
+  - basicauthenticators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - authenticator.snappcloud.io
+  resources:
+  - basicauthenticators/status
+  verbs:
+  - get
