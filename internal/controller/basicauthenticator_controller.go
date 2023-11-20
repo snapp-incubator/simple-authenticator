@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	authenticatorv1alpha1 "github.com/sinamna/BasicAthenticator/api/v1alpha1"
 	"github.com/sinamna/BasicAthenticator/internal/config"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,8 +29,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	authenticatorv1alpha1 "github.com/sinamna/BasicAthenticator/api/v1alpha1"
 )
 
 // BasicAuthenticatorReconciler reconciles a BasicAuthenticator object
@@ -65,13 +64,6 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	//TODO:handle deletion scenario and clean up
-
-	err = r.Status().Update(ctx, basicAuthenticator)
-	if err != nil {
-		logger.Error(err, "failed to update status")
-		return ctrl.Result{}, err
-	}
 	credentialName := basicAuthenticator.Spec.CredentialsSecretRef
 	var credentialSecret corev1.Secret
 	if credentialName == "" {
@@ -85,10 +77,7 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 				logger.Error(err, "failed to create new secret")
 				return ctrl.Result{Requeue: true}, err
 			}
-			if err := ctrl.SetControllerReference(basicAuthenticator, newSecret, r.Scheme); err != nil {
-				logger.Error(err, "failed to set secrets owner")
-				return ctrl.Result{}, err
-			}
+
 			credentialName = newSecret.Name
 			credentialSecret = *newSecret
 			basicAuthenticator.Spec.CredentialsSecretRef = credentialName
@@ -118,16 +107,16 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 	var foundConfigmap corev1.ConfigMap
 	err = r.Get(ctx, types.NamespacedName{Name: nginxConfig.Name, Namespace: basicAuthenticator.Namespace}, &foundConfigmap)
 	if errors.IsNotFound(err) {
+		if err := ctrl.SetControllerReference(basicAuthenticator, nginxConfig, r.Scheme); err != nil {
+			logger.Error(err, "failed to set configmap owner")
+			return ctrl.Result{}, err
+		}
 		err := r.Create(ctx, nginxConfig)
 		if err != nil {
 			logger.Error(err, "failed to create new configmap")
 			return ctrl.Result{Requeue: true}, err
 		}
-		if err := ctrl.SetControllerReference(basicAuthenticator, nginxConfig, r.Scheme); err != nil {
-			logger.Error(err, "failed to set configmap owner")
-			return ctrl.Result{}, err
-		}
-		foundConfigmap = *nginxConfig
+		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		logger.Error(err, "failed to fetch configmap")
 		return ctrl.Result{}, err
@@ -163,16 +152,19 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 		foundDeployment := &appv1.Deployment{}
 		err = r.Get(ctx, types.NamespacedName{Name: newDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
 		if errors.IsNotFound(err) {
+			if err := ctrl.SetControllerReference(basicAuthenticator, newDeployment, r.Scheme); err != nil {
+				logger.Error(err, "failed to set deployment owner")
+				return ctrl.Result{}, err
+			}
 			//create deployment
 			err := r.Create(ctx, newDeployment)
 			if err != nil {
 				logger.Error(err, "failed to create new deployment")
 				return ctrl.Result{Requeue: true}, err
 			}
-			if err := ctrl.SetControllerReference(basicAuthenticator, newDeployment, r.Scheme); err != nil {
-				logger.Error(err, "failed to set deployment owner")
-				return ctrl.Result{}, err
-			}
+			logger.Info("created deployment")
+
+			return ctrl.Result{Requeue: true}, nil
 		} else if err != nil {
 			if err != nil {
 				logger.Error(err, "failed to fetch deployment")
@@ -189,7 +181,16 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 					return ctrl.Result{}, err
 				}
 			}
+			logger.Info("updating ready replicas")
+			basicAuthenticator.Status.ReadyReplicas = int(foundDeployment.Status.ReadyReplicas)
+			err := r.Status().Update(ctx, basicAuthenticator)
+			if err != nil {
+				logger.Error(err, "failed to update basic authenticator status")
+				return ctrl.Result{}, err
+			}
+
 		}
+
 	}
 
 	return ctrl.Result{}, nil

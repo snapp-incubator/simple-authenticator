@@ -3,7 +3,7 @@ kind: BasicAuthenticator
 metadata:
   name: basicauthenticator-sample
 status:
-  readyReplicas: 0
+  readyReplicas: 1
 ---
 apiVersion: apps/v1
 kind: deployment

@@ -50,7 +50,7 @@ spec:
                 type: string
               replicas:
                 maximum: 5
-                minimum: 1
+                minimum: 0
                 type: integer
               selector:
                 description: A label selector is a label query over a set of resources.

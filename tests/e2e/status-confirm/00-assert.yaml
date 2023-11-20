@@ -3,5 +3,5 @@ kind: BasicAuthenticator
 metadata:
   name: basicauthenticator-sample
 status:
-  readyReplicas: 0
+  readyReplicas: 2
 

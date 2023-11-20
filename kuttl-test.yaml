@@ -5,3 +5,4 @@ testDirs:
 crdDir: ./config/crd/bases
 kindContext: kind
 startKIND: false
+timeout: 120

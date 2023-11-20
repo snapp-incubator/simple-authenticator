@@ -31,7 +31,5 @@ kind-logs*
 # Kubeconfig
 kubeconfig
 tests/kubeconfig
-
-
 # Bundle
 bundle*/

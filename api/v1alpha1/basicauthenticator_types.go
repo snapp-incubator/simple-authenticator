@@ -29,7 +29,7 @@ type BasicAuthenticatorSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Maximum=5
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	Replicas int `json:"replicas"`
 
 	// +kubebuilder:validation:Optional
