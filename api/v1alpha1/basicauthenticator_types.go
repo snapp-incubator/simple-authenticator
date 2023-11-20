@@ -20,41 +20,41 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // BasicAuthenticatorSpec defines the desired state of BasicAuthenticator
 type BasicAuthenticatorSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of BasicAuthenticator. Edit basicauthenticator_types.go to remove/update
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=sidecar;deployment
 	// Type is used to determine that nginx should be sidercar or deployment
-	Type string `json:"type,omitempty"`
+	Type string `json:"type"`
+
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Maximum=5
 	// +kubebuilder:validation:Minimum=1
-	Replicas int `json:"replicas,omitempty"`
+	Replicas int `json:"replicas"`
+
 	// +kubebuilder:validation:Optional
-	Selector metav1.LabelSelector `json:"selector,omitempty"`
+	Selector metav1.LabelSelector `json:"selector"`
+
 	// +kubebuilder:validation:Optional
 	AppPort int `json:"appPort"`
+
 	// +kubebuilder:validation:Optional
 	AppService string `json:"appService"`
+
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
 	AdaptiveScale bool `json:"adaptiveScale"`
+
 	// +kubebuilder:validation:Required
+	// +kubebuilder:default=80
 	AuthenticatorPort int `json:"authenticatorPort"`
+
 	// +kubebuilder:validation:Optional
 	CredentialsSecretRef string `json:"credentialsSecretRef"`
 }
 
 // BasicAuthenticatorStatus defines the observed state of BasicAuthenticator
 type BasicAuthenticatorStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 	ReadyReplicas int    `json:"readyReplicas"`
 	Reason        string `json:"reason"`
 }
