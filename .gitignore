@@ -24,3 +24,14 @@ Dockerfile.cross
 *.swp
 *.swo
 *~
+
+# KIND
+kind-logs*
+
+# Kubeconfig
+kubeconfig
+tests/kubeconfig
+
+
+# Bundle
+bundle*/

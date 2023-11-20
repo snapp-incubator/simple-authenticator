@@ -9,7 +9,7 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: basicauthenticator
-repo: github.com/sinamna/BasicAthenticator
+repo: github.com/snapp-incubator/simple-authenticator
 resources:
 - api:
     crdVersion: v1
@@ -18,7 +18,7 @@ resources:
   domain: snappcloud.io
   group: authenticator
   kind: BasicAuthenticator
-  path: github.com/sinamna/BasicAthenticator/api/v1alpha1
+  path: github.com/snapp-incubator/simple-authenticator/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
