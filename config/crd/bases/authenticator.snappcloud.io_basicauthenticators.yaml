@@ -37,12 +37,14 @@ spec:
             description: BasicAuthenticatorSpec defines the desired state of BasicAuthenticator
             properties:
               adaptiveScale:
+                default: false
                 type: boolean
               appPort:
                 type: integer
               appService:
                 type: string
               authenticatorPort:
+                default: 80
                 type: integer
               credentialsSecretRef:
                 type: string
@@ -99,23 +101,20 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               type:
-                description: Foo is an example field of BasicAuthenticator. Edit basicauthenticator_types.go
-                  to remove/update Type is used to determine that nginx should be
-                  sidercar or deployment
+                description: Type is used to determine that nginx should be sidercar
+                  or deployment
                 enum:
                 - sidecar
                 - deployment
                 type: string
             required:
             - authenticatorPort
+            - type
             type: object
           status:
             description: BasicAuthenticatorStatus defines the observed state of BasicAuthenticator
             properties:
               readyReplicas:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
                 type: integer
               reason:
                 type: string

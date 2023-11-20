@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/part-of: basicauthenticator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: basicauthenticator
-  name: basicauthenticator-sample
+  name: basicauthenticator-sample-test
 spec:
   type: deployment
   replicas: 2

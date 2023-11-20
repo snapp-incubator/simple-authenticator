@@ -2,9 +2,11 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/sinamna/BasicAthenticator/api/v1alpha1"
-	"github.com/sinamna/BasicAthenticator/pkg/htpasswd"
+	"github.com/sinamna/BasicAthenticator/pkg/hash"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,30 +19,30 @@ const (
 	ConfigMountPath = "/etc/nginx/conf.d"
 	SecretMountPath = "/etc/secret"
 	//TODO: maybe using better templating?
-	template = `server {
+	template = `
+server {
 	listen AUTHENTICATOR_PORT;
 	location / {
 		auth_basic	"basic authentication area";
 		auth_basic_user_file FILE_PATH;
-		proxy_pass http://APP_SERVICE:APP_PORT
+		proxy_pass http://APP_SERVICE:APP_PORT;
 	}
-}
-`
+}`
 )
 
 // TODO: come up with better name that "nginx"
 func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string) *appsv1.Deployment {
-	nginxImageAddress := "curlimages/curl:latest"
+	nginxImageAddress := nginxDefaultImageAddress
 	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.Image != "" {
 		nginxImageAddress = r.CustomConfig.WebserverConf.Image
 	}
 
-	nginxContainerName := "nginx"
+	nginxContainerName := nginxDefaultContainerName
 	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.ContainerName != "" {
 		nginxContainerName = r.CustomConfig.WebserverConf.ContainerName
 	}
 
-	deploymentName := fmt.Sprintf("%s-nginx", basicAuthenticator.Name)
+	deploymentName := GenerateRandomName(basicAuthenticator.Name, "deployment")
 	replicas := int32(basicAuthenticator.Spec.Replicas)
 	authenticatorPort := int32(basicAuthenticator.Spec.AuthenticatorPort)
 
@@ -64,9 +66,8 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:    nginxContainerName,
-							Image:   nginxImageAddress,
-							Command: []string{"sleep", "infinity"}, //temp
+							Name:  nginxContainerName,
+							Image: nginxImageAddress,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: authenticatorPort,
@@ -113,7 +114,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 }
 
 func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.ConfigMap {
-	configmapName := fmt.Sprintf("%s-nginx-conf", basicAuthenticator.Name)
+	configmapName := GenerateRandomName(basicAuthenticator.Name, "configmap")
 	labels := map[string]string{
 		"app": basicAuthenticator.Name,
 	}
@@ -132,28 +133,29 @@ func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *
 	return configMap
 }
 
-func (r *BasicAuthenticatorReconciler) CreateCredentials(authenticator *v1alpha1.BasicAuthenticator) *corev1.Secret {
-	username, password := htpasswd.GenerateRandomString(20), htpasswd.GenerateRandomString(20)
+func (r *BasicAuthenticatorReconciler) CreateCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.Secret {
+	username, password := hash.GenerateRandomString(20), hash.GenerateRandomString(20)
 	htpasswdString := fmt.Sprintf("%s:%s", username, password)
+	secretName := GenerateRandomName(basicAuthenticator.Name, hash.GenerateRandomString(10))
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-credentials", authenticator.Name),
-			Namespace: authenticator.Namespace,
+			Name:      secretName,
+			Namespace: basicAuthenticator.Namespace,
 		},
 		StringData: map[string]string{
-			".htpasswd": htpasswdString,
+			".hash": htpasswdString,
 		},
 	}
 	return secret
 }
 
 func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string) ([]*appsv1.Deployment, error) {
-	nginxImageAddress := "curlimages/curl:latest"
+	nginxImageAddress := nginxDefaultImageAddress
 	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.Image != "" {
 		nginxImageAddress = r.CustomConfig.WebserverConf.Image
 	}
 
-	nginxContainerName := "nginx"
+	nginxContainerName := nginxDefaultContainerName
 	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.ContainerName != "" {
 		nginxContainerName = r.CustomConfig.WebserverConf.ContainerName
 	}
@@ -233,4 +235,11 @@ func FillTemplate(template string, secretPath string, authenticator *v1alpha1.Ba
 	result = strings.Replace(result, "APP_SERVICE", appservice, 1)
 	result = strings.Replace(result, "APP_PORT", fmt.Sprintf("%d", authenticator.Spec.AppPort), 1)
 	return result
+}
+
+func GenerateRandomName(baseName string, salt string) string {
+	tuple := fmt.Sprintf("%s-%s", baseName, salt)
+	sum := sha256.Sum256([]byte(tuple))
+	subByte := sum[:8]
+	return fmt.Sprintf("%s-%s", baseName, hex.EncodeToString(subByte))
 }

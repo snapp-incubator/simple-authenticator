@@ -1,4 +1,4 @@
-package htpasswd
+package hash
 
 import "crypto/rand"
 

@@ -45,15 +45,6 @@ type BasicAuthenticatorReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:resources=secret,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the BasicAuthenticator object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("reconcile triggered")
@@ -75,9 +66,7 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	//TODO:handle deletion scenario and clean up
-	//if basicAuthenticator.GetDeletionTimestamp() != nil {
-	//	// clean up
-	//}
+
 	err = r.Status().Update(ctx, basicAuthenticator)
 	if err != nil {
 		logger.Error(err, "failed to update status")
@@ -89,20 +78,34 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 		//create secret
 		newSecret := r.CreateCredentials(basicAuthenticator)
 		err = r.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, &credentialSecret)
-		if err != nil && errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			// update basic auth
 			err := r.Create(ctx, newSecret)
 			if err != nil {
 				logger.Error(err, "failed to create new secret")
-				return ctrl.Result{}, err
+				return ctrl.Result{Requeue: true}, err
 			}
 			if err := ctrl.SetControllerReference(basicAuthenticator, newSecret, r.Scheme); err != nil {
 				logger.Error(err, "failed to set secrets owner")
 				return ctrl.Result{}, err
 			}
+			credentialName = newSecret.Name
+			credentialSecret = *newSecret
+			basicAuthenticator.Spec.CredentialsSecretRef = credentialName
+			err = r.Update(ctx, basicAuthenticator)
+			if err != nil {
+				logger.Error(err, "failed to updated basic authenticator")
+				return ctrl.Result{}, err
+			}
+
+			err = r.Get(ctx, req.NamespacedName, basicAuthenticator)
+			if err != nil {
+				logger.Error(err, "failed to refetch basic authenticator")
+				return ctrl.Result{}, err
+			}
+		} else {
+			return ctrl.Result{Requeue: true}, nil
 		}
-		credentialName = newSecret.Name
-		credentialSecret = *newSecret
 	} else {
 		err := r.Get(ctx, types.NamespacedName{Name: credentialName, Namespace: basicAuthenticator.Namespace}, &credentialSecret)
 		if err != nil {
@@ -114,16 +117,17 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 	nginxConfig := r.CreateNginxConfigmap(basicAuthenticator)
 	var foundConfigmap corev1.ConfigMap
 	err = r.Get(ctx, types.NamespacedName{Name: nginxConfig.Name, Namespace: basicAuthenticator.Namespace}, &foundConfigmap)
-	if err != nil && errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		err := r.Create(ctx, nginxConfig)
 		if err != nil {
 			logger.Error(err, "failed to create new configmap")
-			return ctrl.Result{}, err
+			return ctrl.Result{Requeue: true}, err
 		}
 		if err := ctrl.SetControllerReference(basicAuthenticator, nginxConfig, r.Scheme); err != nil {
 			logger.Error(err, "failed to set configmap owner")
 			return ctrl.Result{}, err
 		}
+		foundConfigmap = *nginxConfig
 	} else if err != nil {
 		logger.Error(err, "failed to fetch configmap")
 		return ctrl.Result{}, err
@@ -158,12 +162,12 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 		newDeployment := r.CreateNginxDeployment(basicAuthenticator, foundConfigmap.Name, credentialName)
 		foundDeployment := &appv1.Deployment{}
 		err = r.Get(ctx, types.NamespacedName{Name: newDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
-		if err != nil && errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			//create deployment
 			err := r.Create(ctx, newDeployment)
 			if err != nil {
 				logger.Error(err, "failed to create new deployment")
-				return ctrl.Result{}, err
+				return ctrl.Result{Requeue: true}, err
 			}
 			if err := ctrl.SetControllerReference(basicAuthenticator, newDeployment, r.Scheme); err != nil {
 				logger.Error(err, "failed to set deployment owner")
