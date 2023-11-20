@@ -132,8 +132,8 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
+	//Deciding to create sidecar injection or create deployment
 	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
-
 	if isSidecar {
 		deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, foundConfigmap.Name, credentialName)
 		if err != nil {
