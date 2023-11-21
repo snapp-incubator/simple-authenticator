@@ -1,9 +1,3 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: basicauthenticator-sample-nginx
-spec:
-  replicas: 3
 ---
 apiVersion: authenticator.snappcloud.io/v1alpha1
 kind: BasicAuthenticator

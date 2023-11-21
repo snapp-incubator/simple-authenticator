@@ -4,13 +4,3 @@ metadata:
   name: basicauthenticator-sample
 status:
   readyReplicas: 1
----
-apiVersion: apps/v1
-kind: deployment
-metadata:
-  name: basicauthenticator-sample-nginx
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: basicauthenticator-sample-credentials

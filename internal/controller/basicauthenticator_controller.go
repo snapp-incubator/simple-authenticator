@@ -172,6 +172,7 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 			}
 		} else {
 			//update deployment
+
 			if !reflect.DeepEqual(newDeployment.Spec, foundDeployment.Spec) {
 				logger.Info("updating deployment")
 				foundDeployment.Spec = newDeployment.Spec
@@ -201,6 +202,7 @@ func (r *BasicAuthenticatorReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&authenticatorv1alpha1.BasicAuthenticator{}).
 		Owns(&appv1.Deployment{}).
+		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Complete(r)
 }
