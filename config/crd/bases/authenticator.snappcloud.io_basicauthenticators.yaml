@@ -108,6 +108,7 @@ spec:
                 - deployment
                 type: string
             required:
+            - appPort
             - authenticatorPort
             - type
             type: object
@@ -118,9 +119,12 @@ spec:
                 type: integer
               reason:
                 type: string
+              state:
+                type: string
             required:
             - readyReplicas
             - reason
+            - state
             type: object
         type: object
     served: true
