@@ -11,7 +11,7 @@ metadata:
 spec:
   type: deployment
   replicas: 2
-  appPort: 8080
+  appPort: 443
   appService: google.com
   adaptiveScale: false
   authenticatorPort: 8080

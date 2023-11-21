@@ -1,4 +1,4 @@
-package controller
+package basic_authenticator
 
 import (
 	"context"
@@ -19,13 +19,17 @@ const (
 	ConfigMountPath = "/etc/nginx/conf.d"
 	SecretMountPath = "/etc/secret"
 	//TODO: maybe using better templating?
-	template = `
-server {
+	template = `server {
 	listen AUTHENTICATOR_PORT;
 	location / {
+		resolver    8.8.8.8;
 		auth_basic	"basic authentication area";
-		auth_basic_user_file FILE_PATH;
+		auth_basic_user_file "FILE_PATH";
 		proxy_pass http://APP_SERVICE:APP_PORT;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
 	}
 }`
 )
@@ -118,7 +122,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *
 	labels := map[string]string{
 		"app": basicAuthenticator.Name,
 	}
-	nginxConf := FillTemplate(template, SecretMountPath, basicAuthenticator)
+	nginxConf := FillTemplate(template, SecretMountPath+"/.htpasswd", basicAuthenticator)
 	data := map[string]string{
 		"nginx.conf": nginxConf,
 	}

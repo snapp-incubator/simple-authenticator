@@ -30,12 +30,12 @@ type BasicAuthenticatorSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Maximum=5
 	// +kubebuilder:validation:Minimum=0
-	Replicas int `json:"replicas"`
+	Replicas int `json:"replicas,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	Selector metav1.LabelSelector `json:"selector"`
+	Selector metav1.LabelSelector `json:"selector,omitempty"`
 
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	AppPort int `json:"appPort"`
 
 	// +kubebuilder:validation:Optional
@@ -57,6 +57,7 @@ type BasicAuthenticatorSpec struct {
 type BasicAuthenticatorStatus struct {
 	ReadyReplicas int    `json:"readyReplicas"`
 	Reason        string `json:"reason"`
+	State         string `json:"state"`
 }
 
 //+kubebuilder:object:root=true
