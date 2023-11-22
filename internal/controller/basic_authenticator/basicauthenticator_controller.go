@@ -18,8 +18,8 @@ package basic_authenticator
 
 import (
 	"context"
-	authenticatorv1alpha1 "github.com/sinamna/BasicAthenticator/api/v1alpha1"
-	"github.com/sinamna/BasicAthenticator/internal/config"
+	authenticatorv1alpha1 "github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
+	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"

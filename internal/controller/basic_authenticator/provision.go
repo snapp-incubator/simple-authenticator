@@ -4,7 +4,7 @@ import (
 	"context"
 	errors2 "errors"
 	"github.com/opdev/subreconciler"
-	"github.com/sinamna/BasicAthenticator/api/v1alpha1"
+	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

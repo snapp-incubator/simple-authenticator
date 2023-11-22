@@ -18,8 +18,8 @@ package main
 
 import (
 	"flag"
-	"github.com/sinamna/BasicAthenticator/internal/config"
-	"github.com/sinamna/BasicAthenticator/internal/controller/basic_authenticator"
+	"github.com/snapp-incubator/simple-authenticator/internal/config"
+	"github.com/snapp-incubator/simple-authenticator/internal/controller/basic_authenticator"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	authenticatorv1alpha1 "github.com/sinamna/BasicAthenticator/api/v1alpha1"
+	authenticatorv1alpha1 "github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
