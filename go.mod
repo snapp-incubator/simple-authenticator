@@ -1,4 +1,4 @@
-module github.com/sinamna/BasicAthenticator
+module github.com/snapp-incubator/simple-authenticator
 
 go 1.19
 
