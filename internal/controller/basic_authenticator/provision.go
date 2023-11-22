@@ -2,7 +2,7 @@ package basic_authenticator
 
 import (
 	"context"
-	errors2 "errors"
+	defaultError "errors"
 	"github.com/opdev/subreconciler"
 	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	appv1 "k8s.io/api/apps/v1"
@@ -157,94 +157,99 @@ func (r *BasicAuthenticatorReconciler) configmapProvisioner(ctx context.Context,
 }
 
 func (r *BasicAuthenticatorReconciler) deploymentProvisioner(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	_ = log.FromContext(ctx)
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.GetLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
 		return r, err
 	}
 	if basicAuthenticator.ObjectMeta.Annotations == nil {
-		return subreconciler.RequeueWithError(errors2.New("configmap annotation and secret annotation must be set"))
+		return subreconciler.RequeueWithError(defaultError.New("configmap annotation and secret annotation must be set"))
 
 	}
 	authenticatorConfigName, configmapExists := basicAuthenticator.ObjectMeta.Annotations[ConfigmapAnnotation]
 	if !configmapExists {
-		return subreconciler.RequeueWithError(errors2.New("configmap annotation not set"))
+		return subreconciler.RequeueWithError(defaultError.New("configmap annotation not set"))
 	}
 
 	secretName, secretExists := basicAuthenticator.ObjectMeta.Annotations[SecretAnnotation]
 	if !secretExists {
-		return subreconciler.RequeueWithError(errors2.New("secret annotation not set"))
+		return subreconciler.RequeueWithError(defaultError.New("secret annotation not set"))
 	}
 	//Deciding to create sidecar injection or create deployment
 	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
 	if isSidecar {
-		deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, authenticatorConfigName, secretName)
-		if err != nil {
-			logger.Error(err, "failed to inject into deployments")
+		return r.CreateSidecarAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+	} else {
+		return r.CreateDeploymentAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+	}
+}
+
+func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	newDeployment := r.CreateNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName)
+	foundDeployment := &appv1.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{Name: newDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
+	if errors.IsNotFound(err) {
+		if err := ctrl.SetControllerReference(basicAuthenticator, newDeployment, r.Scheme); err != nil {
+			logger.Error(err, "failed to set deployment owner")
 			return subreconciler.RequeueWithError(err)
 		}
-		for _, deploy := range deploymentsToUpdate {
-			if err := ctrl.SetControllerReference(basicAuthenticator, deploy, r.Scheme); err != nil {
-				logger.Error(err, "failed to set injected deployment owner")
-				return subreconciler.RequeueWithError(err)
-			}
-			err := r.Update(ctx, deploy)
-			if err != nil {
-				logger.Error(err, "failed to update injected deployments")
-				return subreconciler.RequeueWithError(err)
-			}
+		//create deployment
+		err := r.Create(ctx, newDeployment)
+		if err != nil {
+			logger.Error(err, "failed to create new deployment")
+			return subreconciler.RequeueWithError(err)
+		}
+		logger.Info("created deployment")
+
+		return subreconciler.Requeue()
+	} else if err != nil {
+		if err != nil {
+			logger.Error(err, "failed to fetch deployment")
+			return subreconciler.RequeueWithError(err)
 		}
 	} else {
-		newDeployment := r.CreateNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName)
-		foundDeployment := &appv1.Deployment{}
-		err := r.Get(ctx, types.NamespacedName{Name: newDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
-		if errors.IsNotFound(err) {
-			if err := ctrl.SetControllerReference(basicAuthenticator, newDeployment, r.Scheme); err != nil {
-				logger.Error(err, "failed to set deployment owner")
-				return subreconciler.RequeueWithError(err)
-			}
-			//create deployment
-			err := r.Create(ctx, newDeployment)
-			if err != nil {
-				logger.Error(err, "failed to create new deployment")
-				return subreconciler.RequeueWithError(err)
-			}
-			logger.Info("created deployment")
+		//update deployment
 
-			return subreconciler.Requeue()
-		} else if err != nil {
+		if !reflect.DeepEqual(newDeployment.Spec, foundDeployment.Spec) {
+			logger.Info("updating deployment")
+			foundDeployment.Spec = newDeployment.Spec
+			err := r.Update(ctx, foundDeployment)
 			if err != nil {
-				logger.Error(err, "failed to fetch deployment")
-				return subreconciler.RequeueWithError(err)
-			}
-		} else {
-			//update deployment
-
-			if !reflect.DeepEqual(newDeployment.Spec, foundDeployment.Spec) {
-				logger.Info("updating deployment")
-				foundDeployment.Spec = newDeployment.Spec
-				err := r.Update(ctx, foundDeployment)
-				if err != nil {
-					logger.Error(err, "failed to update deployment")
-					return subreconciler.RequeueWithError(err)
-				}
-			}
-			logger.Info("updating ready replicas")
-			basicAuthenticator.Status.ReadyReplicas = int(foundDeployment.Status.ReadyReplicas)
-			err := r.Status().Update(ctx, basicAuthenticator)
-			if err != nil {
-				logger.Error(err, "failed to update basic authenticator status")
+				logger.Error(err, "failed to update deployment")
 				return subreconciler.RequeueWithError(err)
 			}
 		}
+		logger.Info("updating ready replicas")
+		basicAuthenticator.Status.ReadyReplicas = int(foundDeployment.Status.ReadyReplicas)
+		err := r.Status().Update(ctx, basicAuthenticator)
+		if err != nil {
+			logger.Error(err, "failed to update basic authenticator status")
+			return subreconciler.RequeueWithError(err)
+		}
 	}
-
 	return subreconciler.ContinueReconciling()
 }
-func assignAnnotation(authenticator *v1alpha1.BasicAuthenticator, key, value string) {
-	if authenticator.ObjectMeta.Annotations == nil {
-		authenticator.ObjectMeta.Annotations = make(map[string]string)
+
+func (r *BasicAuthenticatorReconciler) CreateSidecarAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, authenticatorConfigName, secretName)
+	if err != nil {
+		logger.Error(err, "failed to inject into deployments")
+		return subreconciler.RequeueWithError(err)
 	}
-	authenticator.ObjectMeta.Annotations[key] = value
+	for _, deploy := range deploymentsToUpdate {
+		if err := ctrl.SetControllerReference(basicAuthenticator, deploy, r.Scheme); err != nil {
+			logger.Error(err, "failed to set injected deployment owner")
+			return subreconciler.RequeueWithError(err)
+		}
+		err := r.Update(ctx, deploy)
+		if err != nil {
+			logger.Error(err, "failed to update injected deployments")
+			return subreconciler.RequeueWithError(err)
+		}
+	}
+	return subreconciler.ContinueReconciling()
 }
