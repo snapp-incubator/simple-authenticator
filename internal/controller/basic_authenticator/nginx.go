@@ -17,7 +17,8 @@ import (
 
 const (
 	ConfigMountPath = "/etc/nginx/conf.d"
-	SecretMountPath = "/etc/secret"
+	SecretMountDir  = "/etc/secret"
+	SecretMountPath = "/etc/secret/.htpasswd"
 	//TODO: maybe using better templating?
 	template = `server {
 	listen AUTHENTICATOR_PORT;
@@ -84,7 +85,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 								},
 								{
 									Name:      credentialName,
-									MountPath: SecretMountPath,
+									MountPath: SecretMountDir,
 								},
 							},
 						},
@@ -122,7 +123,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *
 	labels := map[string]string{
 		"app": basicAuthenticator.Name,
 	}
-	nginxConf := FillTemplate(template, SecretMountPath+"/.htpasswd", basicAuthenticator)
+	nginxConf := FillTemplate(template, SecretMountPath, basicAuthenticator)
 	data := map[string]string{
 		"nginx.conf": nginxConf,
 	}
@@ -147,7 +148,7 @@ func (r *BasicAuthenticatorReconciler) CreateCredentials(basicAuthenticator *v1a
 			Namespace: basicAuthenticator.Namespace,
 		},
 		StringData: map[string]string{
-			".hash": htpasswdString,
+			".htpasswd": htpasswdString,
 		},
 	}
 	return secret
@@ -199,7 +200,7 @@ func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthen
 				},
 				{
 					Name:      credentialName,
-					MountPath: SecretMountPath,
+					MountPath: SecretMountDir,
 				},
 			},
 		})
