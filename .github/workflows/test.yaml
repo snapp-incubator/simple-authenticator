@@ -37,13 +37,13 @@ jobs:
         run: |
           kubectl cluster-info --context kind-kind
           kind load docker-image $OPERATOR_IMAGE_TAG --name kind
+          kind load docker-image docker.io/library/basic-authentication-operator:latest --name
 
       - name: deploy operator
-        run: make deploy IMG=$OPERATOR_IMAGE_TAG
+        run: make deploy IMG=docker.io/library/basic-authentication-operator:latest
       - name: debug
         run: |
-          sleep 40
-          echo $OPERATOR_IMAGE_TAG
+          sleep 90
           kubectl describe deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
 
       - name: Wait for basic operator to be ready
