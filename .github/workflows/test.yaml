@@ -37,7 +37,7 @@ jobs:
         run: |
           kubectl cluster-info --context kind-kind
           kind load docker-image $OPERATOR_IMAGE_TAG --name kind
-          kind load docker-image docker.io/library/basic-authentication-operator:latest --name
+          kind load docker-image docker.io/library/basic-authentication-operator:latest --name kind
 
       - name: deploy operator
         run: make deploy IMG=docker.io/library/basic-authentication-operator:latest
