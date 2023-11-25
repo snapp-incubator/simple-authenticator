@@ -46,9 +46,7 @@ jobs:
         run: |
           kubectl get pods -n basicauthenticator-system
           sleep 90
-          kubectl get pods -n basicauthenticator-system
-          sleep 90 
-          k describe deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
+          kubectl describe deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
           kubectl wait --for=condition=available --timeout=300s deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
 
       - name: Run e2e test
