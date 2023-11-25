@@ -5,8 +5,8 @@ on:
     branches:
       - main
   pull_request:
-#env:
-#  OPERATOR_IMAGE_TAG: basic-authentication-operator:latest
+
+
 jobs:
   e2e-test:
     name: e2e-test
@@ -44,11 +44,6 @@ jobs:
 
       - name: Wait for basic operator to be ready
         run: |
-          kubectl get pods -n basicauthenticator-system
-          sleep 90
-          kubectl get pod -n basicauthenticator-system
-          kubectl get event -n basicauthenticator-system
-          kubectl describe pod -n basicauthenticator-system
           kubectl wait --for=condition=available --timeout=300s deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
 
       - name: Run e2e test
