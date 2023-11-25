@@ -5,15 +5,21 @@ on:
     branches:
       - main
   pull_request:
-env:
-  OPERATOR_IMAGE_TAG: basic-authentication-operator:latest
+#env:
+#  OPERATOR_IMAGE_TAG: basic-authentication-operator:latest
 jobs:
   e2e-test:
     name: e2e-test
     runs-on: ubuntu-latest
     steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - uses: actions/checkout@v3
         name: checkout code
+
       - name: Install kuttl
         run: |
           curl -L https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64 -o /usr/local/bin/kubectl-kuttl
@@ -31,22 +37,23 @@ jobs:
           cluster_name: kind
 
       - name: build operator
-        run: make docker-build IMG=$OPERATOR_IMAGE_TAG
+        run: make docker-build IMG=basic-authentication-operator:latest
 
       - name: Load Docker image into Kind
         run: |
           kubectl cluster-info --context kind-kind
-          kind load docker-image $OPERATOR_IMAGE_TAG --name kind
-          kind load docker-image docker.io/library/basic-authentication-operator:latest --name kind
+          kind load docker-image basic-authentication-operator:latest --name kind
 
       - name: deploy operator
-        run: make deploy IMG=docker.io/library/basic-authentication-operator:latest
+        run: make deploy IMG=basic-authentication-operator:latest
 
       - name: Wait for basic operator to be ready
         run: |
           kubectl get pods -n basicauthenticator-system
           sleep 90
-          kubectl describe deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
+          kubectl get pod -n basicauthenticator-system
+          kubectl get event -n basicauthenticator-system
+          kubectl describe pod -n basicauthenticator-system
           kubectl wait --for=condition=available --timeout=300s deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
 
       - name: Run e2e test
