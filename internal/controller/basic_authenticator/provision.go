@@ -14,8 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const basicAuthenticatorFinalizer = "basicauthenticators.authenticator.snappcloud.io/finalizer"
-
 // Provision provisions the required resources for the basicAuthenticator object
 func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Do the actual reconcile work
