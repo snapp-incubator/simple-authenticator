@@ -19,6 +19,8 @@ jobs:
           chmod +x /usr/local/bin/kubectl-kuttl
       - name: run kind cluster
         run: kind create cluster
+      - name: use kind cluster
+        run:  kubectl cluster-info --context kind-kind
       - name: build operator
         run: make docker-build IMG=basic-authentication-operator:latest
       - name: run operator
