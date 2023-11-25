@@ -40,5 +40,9 @@ jobs:
       - name: deploy operator
         run: make deploy IMG=basic-authentication-operator:latest
 
+      - name: Wait for basic operator to be ready
+        run: |
+          kubectl wait --for=condition=available --timeout=300s deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
+
       - name: Run e2e test
         run: make e2e-test
