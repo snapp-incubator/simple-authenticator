@@ -41,13 +41,10 @@ jobs:
 
       - name: deploy operator
         run: make deploy IMG=docker.io/library/basic-authentication-operator:latest
-      - name: debug
-        run: |
-          sleep 90
-          kubectl describe deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
 
       - name: Wait for basic operator to be ready
         run: |
+          kubectl get pods -n basicauthenticator-system
           kubectl wait --for=condition=available --timeout=300s deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
 
       - name: Run e2e test
