@@ -18,9 +18,9 @@ import (
 func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Do the actual reconcile work
 	subProvisioner := []subreconciler.FnWithRequest{
-		r.secretProvisioner,
-		r.configmapProvisioner,
-		r.deploymentProvisioner,
+		r.ensureSecret,
+		r.ensureConfigmap,
+		r.ensureDeployment,
 	}
 	for _, provisioner := range subProvisioner {
 		result, err := provisioner(ctx, req)
@@ -46,7 +46,7 @@ func (r *BasicAuthenticatorReconciler) GetLatestBasicAuthenticator(ctx context.C
 	return subreconciler.ContinueReconciling()
 }
 
-func (r *BasicAuthenticatorReconciler) secretProvisioner(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
@@ -100,7 +100,7 @@ func (r *BasicAuthenticatorReconciler) secretProvisioner(ctx context.Context, re
 	return subreconciler.ContinueReconciling()
 }
 
-func (r *BasicAuthenticatorReconciler) configmapProvisioner(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
@@ -154,7 +154,7 @@ func (r *BasicAuthenticatorReconciler) configmapProvisioner(ctx context.Context,
 	return subreconciler.ContinueReconciling()
 }
 
-func (r *BasicAuthenticatorReconciler) deploymentProvisioner(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
