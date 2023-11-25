@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  e2e-test:
+    name: e2e-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: checkout code
+      - name: Install kuttl
+        run: |
+          curl -L https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64 -o /usr/local/bin/kubectl-kuttl
+          chmod +x /usr/local/bin/kubectl-kuttl
+      - name: run kind cluster
+        run: kind create cluster
+      - name: build operator
+        run: make docker-build IMG=basic-authentication-operator:latest
+      - name: run operator
+        run: docker run basic-authentication-operator:latest
+      - name: Run e2e test
+        run: make e2e-test
