@@ -1,12 +1,12 @@
-package controller
+package basic_authenticator
 
 import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/sinamna/BasicAthenticator/api/v1alpha1"
-	"github.com/sinamna/BasicAthenticator/pkg/hash"
+	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
+	"github.com/snapp-incubator/simple-authenticator/pkg/hash"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,15 +17,20 @@ import (
 
 const (
 	ConfigMountPath = "/etc/nginx/conf.d"
-	SecretMountPath = "/etc/secret"
+	SecretMountDir  = "/etc/secret"
+	SecretMountPath = "/etc/secret/.htpasswd"
 	//TODO: maybe using better templating?
-	template = `
-server {
+	template = `server {
 	listen AUTHENTICATOR_PORT;
 	location / {
+		resolver    8.8.8.8;
 		auth_basic	"basic authentication area";
-		auth_basic_user_file FILE_PATH;
+		auth_basic_user_file "FILE_PATH";
 		proxy_pass http://APP_SERVICE:APP_PORT;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
 	}
 }`
 )
@@ -80,7 +85,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 								},
 								{
 									Name:      credentialName,
-									MountPath: SecretMountPath,
+									MountPath: SecretMountDir,
 								},
 							},
 						},
@@ -143,7 +148,7 @@ func (r *BasicAuthenticatorReconciler) CreateCredentials(basicAuthenticator *v1a
 			Namespace: basicAuthenticator.Namespace,
 		},
 		StringData: map[string]string{
-			".hash": htpasswdString,
+			".htpasswd": htpasswdString,
 		},
 	}
 	return secret
@@ -195,7 +200,7 @@ func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthen
 				},
 				{
 					Name:      credentialName,
-					MountPath: SecretMountPath,
+					MountPath: SecretMountDir,
 				},
 			},
 		})
