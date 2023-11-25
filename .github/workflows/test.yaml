@@ -17,13 +17,28 @@ jobs:
         run: |
           curl -L https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64 -o /usr/local/bin/kubectl-kuttl
           chmod +x /usr/local/bin/kubectl-kuttl
-      - name: run kind cluster
-        run: kind create cluster
-      - name: use kind cluster
-        run:  kubectl cluster-info --context kind-kind
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Create  Kind Cluster
+        uses: helm/kind-action@v1.5.0
+        with:
+          cluster_name: kind
+
       - name: build operator
         run: make docker-build IMG=basic-authentication-operator:latest
-      - name: run operator
-        run: docker run -v $home/.kube/config:$home/.kube/config basic-authentication-operator:latest
+
+      - name: Load Docker image into Kind
+        run: |
+          kubectl cluster-info --context kind-kind
+          kind load docker-image basic-authentication-operator:latest --name kind
+
+      - name: deploy operator
+        run: make deploy IMG=basic-authentication-operator:latest
+
       - name: Run e2e test
         run: make e2e-test
