@@ -24,6 +24,7 @@ jobs:
         uses: helm/kind-action@v1.5.0
         with:
           cluster_name: kind
+          node_image: kindest/node:v1.23.3
 
       - name: build operator
         run: make docker-build IMG=basic-authentication-operator:latest
