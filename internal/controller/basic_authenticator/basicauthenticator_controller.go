@@ -80,7 +80,7 @@ func (r *BasicAuthenticatorReconciler) findExternallyManagedDeployments(deployme
 	if !exists {
 		return nil
 	}
-	log.FromContext(context.Background()).Info("deployment before revision", "revision", deploy.ResourceVersion, "basic Auth name", basicAuthName, "ns", deploy.Namespace)
+
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{Name: basicAuthName, Namespace: deploy.Namespace},

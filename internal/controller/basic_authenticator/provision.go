@@ -238,18 +238,12 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 		if !reflect.DeepEqual(newDeployment.Spec, foundDeployment.Spec) {
 			logger.Info("updating deployment")
 
-			err = r.Get(ctx, types.NamespacedName{Name: foundDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
-			if err != nil {
-				logger.Error(err, "failed to refetch")
-				return subreconciler.RequeueWithError(err)
-			}
-
 			foundDeployment.Spec = newDeployment.Spec
 			foundDeployment.Spec.Replicas = targetReplica
 
 			err := r.Update(ctx, foundDeployment)
 			if err != nil {
-				logger.Error(err, "failed to update deployment", "newDeploy replica", newDeployment.Spec.Replicas, "targetReplica", targetReplica, "revision", foundDeployment.ResourceVersion)
+				logger.Error(err, "failed to update deployment")
 				return subreconciler.RequeueWithError(err)
 			}
 			err = r.Get(ctx, types.NamespacedName{Name: foundDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
