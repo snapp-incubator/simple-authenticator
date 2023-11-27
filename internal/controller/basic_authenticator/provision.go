@@ -9,8 +9,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"math"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -194,10 +196,24 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 			logger.Error(err, "failed to set deployment owner")
 			return subreconciler.RequeueWithError(err)
 		}
+		if basicAuthenticator.Spec.AdaptiveScale && basicAuthenticator.Spec.AppService != "" {
+			replica, err := r.AcquireTargetReplica(ctx, basicAuthenticator)
+			if err != nil {
+				logger.Error(err, "failed to acquire target replica using adaptiveScale")
+				return subreconciler.RequeueWithError(err)
+			}
+			newDeployment.Spec.Replicas = &replica
+		}
+
 		//create deployment
 		err := r.Create(ctx, newDeployment)
 		if err != nil {
 			logger.Error(err, "failed to create new deployment")
+			return subreconciler.RequeueWithError(err)
+		}
+		err = r.Get(ctx, types.NamespacedName{Name: foundDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
+		if err != nil {
+			logger.Error(err, "failed to refetch")
 			return subreconciler.RequeueWithError(err)
 		}
 		logger.Info("created deployment")
@@ -210,15 +226,38 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 		}
 	} else {
 		//update deployment
+		targetReplica := newDeployment.Spec.Replicas
+		if basicAuthenticator.Spec.AdaptiveScale && basicAuthenticator.Spec.AppService != "" {
+			replica, err := r.AcquireTargetReplica(ctx, basicAuthenticator)
+			if err != nil {
+				logger.Error(err, "failed to acquire target replica using adaptiveScale")
+			}
+			targetReplica = &replica
+		}
 
 		if !reflect.DeepEqual(newDeployment.Spec, foundDeployment.Spec) {
 			logger.Info("updating deployment")
-			foundDeployment.Spec = newDeployment.Spec
-			err := r.Update(ctx, foundDeployment)
+
+			err = r.Get(ctx, types.NamespacedName{Name: foundDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
 			if err != nil {
-				logger.Error(err, "failed to update deployment")
+				logger.Error(err, "failed to refetch")
 				return subreconciler.RequeueWithError(err)
 			}
+
+			foundDeployment.Spec = newDeployment.Spec
+			foundDeployment.Spec.Replicas = targetReplica
+
+			err := r.Update(ctx, foundDeployment)
+			if err != nil {
+				logger.Error(err, "failed to update deployment", "newDeploy replica", newDeployment.Spec.Replicas, "targetReplica", targetReplica, "revision", foundDeployment.ResourceVersion)
+				return subreconciler.RequeueWithError(err)
+			}
+			err = r.Get(ctx, types.NamespacedName{Name: foundDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
+			if err != nil {
+				logger.Error(err, "failed to refetch")
+				return subreconciler.RequeueWithError(err)
+			}
+
 		}
 		logger.Info("updating ready replicas")
 		basicAuthenticator.Status.ReadyReplicas = int(foundDeployment.Status.ReadyReplicas)
@@ -250,4 +289,40 @@ func (r *BasicAuthenticatorReconciler) CreateSidecarAuthenticator(ctx context.Co
 		}
 	}
 	return subreconciler.ContinueReconciling()
+}
+
+func (r *BasicAuthenticatorReconciler) AcquireTargetReplica(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator) (int32, error) {
+	var targetService corev1.Service
+	// service should be in same ns with basic auth
+	if err := r.Get(ctx, types.NamespacedName{Name: basicAuthenticator.Spec.AppService, Namespace: basicAuthenticator.ObjectMeta.Namespace}, &targetService); err != nil {
+		return -1, err
+	}
+	labelSelector := targetService.Spec.Selector
+
+	deployments := &appv1.DeploymentList{}
+	if err := r.List(ctx, deployments, client.MatchingLabels(labelSelector)); err != nil {
+		return -1, err
+	}
+
+	if len(deployments.Items) == 0 {
+		return -1, defaultError.New("no deployment is selected by appService")
+	}
+
+	targetDeploy := deployments.Items[0] //we expect it to be single deployment
+	if targetDeploy.ObjectMeta.Annotations == nil {
+		targetDeploy.ObjectMeta.Annotations = make(map[string]string)
+	}
+	log.FromContext(context.Background()).Info("----- debug", "deployment revision:", targetDeploy.ResourceVersion)
+
+	targetDeploy.ObjectMeta.Annotations[ExternallyManaged] = basicAuthenticator.Name
+
+	err := r.Update(ctx, &targetDeploy)
+	if err != nil {
+		return -1, err
+	}
+	replicas := deployments.Items[0].Spec.Replicas
+	targetReplica := math.Floor(float64((*replicas + 1) / 2))
+	log.FromContext(context.Background()).Info("-------debug", "target Replica inside", targetReplica)
+
+	return int32(targetReplica), nil
 }

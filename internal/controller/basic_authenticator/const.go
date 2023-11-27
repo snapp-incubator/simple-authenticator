@@ -5,5 +5,6 @@ const (
 	nginxDefaultContainerName   = "nginx"
 	SecretAnnotation            = "authenticator.snappcloud.io/secret.name"
 	ConfigmapAnnotation         = "authenticator.snappcloud.io/configmap.name"
-	basicAuthenticatorFinalizer = "basicauthenticators.authenticator.snappcloud.io/finalizer"
+	basicAuthenticatorFinalizer = "basicauthenticator.snappcloud.io/finalizer"
+	ExternallyManaged           = "basicauthenticator.snappcloud.io/externally.managed"
 )
