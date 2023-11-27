@@ -3,6 +3,6 @@ kind: TestSuite
 testDirs:
   - ./tests/e2e/
 crdDir: ./config/crd/bases
-kindConfig: "./kind-config.yaml"
-startKIND: true
+kindContext: kind
+startKIND: false
 timeout: 180
