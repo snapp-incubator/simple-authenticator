@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	"github.com/snapp-incubator/simple-authenticator/internal/controller/basic_authenticator"
@@ -71,6 +72,8 @@ func main() {
 	customConfig, err := config.InitConfig(customConfigPath)
 	if err != nil {
 		setupLog.Info("custom config not loaded")
+	} else {
+		authenticatorv1alpha1.ValidationTimeout = time.Second * time.Duration(customConfig.WebhookConf.ValidationTimeoutSecond)
 	}
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,

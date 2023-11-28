@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"errors"
-	"fmt"
 	htpasswd "github.com/snapp-incubator/simple-authenticator/pkg/htpasswd"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,9 +28,13 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
+	"time"
 )
 
-var runtimeClient client.Client
+var (
+	runtimeClient     client.Client
+	ValidationTimeout time.Duration
+)
 
 // log is for logging in this package.
 var basicauthenticatorlog = logf.Log.WithName("basicauthenticator-resource")
@@ -91,7 +94,8 @@ func (r *BasicAuthenticator) validateCredentials() error {
 		return nil
 	}
 
-	ctx := context.Background() //TODO: can be configured to use timeout
+	ctx, cancel := context.WithTimeout(context.Background(), ValidationTimeout)
+	defer cancel()
 	var credentials v1.Secret
 
 	err := runtimeClient.Get(ctx, types.NamespacedName{Namespace: r.Namespace, Name: secretName}, &credentials)
@@ -99,14 +103,14 @@ func (r *BasicAuthenticator) validateCredentials() error {
 		basicauthenticatorlog.Error(err, "failed to fetch secret")
 		return err
 	}
-	basicauthenticatorlog.Info(fmt.Sprintf("%+v", credentials.Data))
+
 	htpasswdByte, exists := credentials.Data[".htpasswd"]
 	if !exists {
 		return errors.New("illegal format. data missing \".htpasswd\" field")
 	}
 	htpasswdStr := string(htpasswdByte)
 	if !htpasswd.ValidateHtpasswdFormat(strings.TrimSpace(htpasswdStr)) {
-		return errors.New("failed to validate format of htpasswd")
+		return errors.New("failed to validate format of htpasswd. htpasswd should be like \"username:password\"")
 	}
 	return nil
 }
