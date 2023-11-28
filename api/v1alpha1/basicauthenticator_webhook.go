@@ -17,22 +17,31 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	htpasswd "github.com/snapp-incubator/simple-authenticator/pkg/htpasswd"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"strings"
 )
+
+var runtimeClient client.Client
 
 // log is for logging in this package.
 var basicauthenticatorlog = logf.Log.WithName("basicauthenticator-resource")
 
 func (r *BasicAuthenticator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	runtimeClient = mgr.GetClient()
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
 }
-
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 //+kubebuilder:webhook:path=/mutate-authenticator-snappcloud-io-v1alpha1-basicauthenticator,mutating=true,failurePolicy=fail,sideEffects=None,groups=authenticator.snappcloud.io,resources=basicauthenticators,verbs=create;update,versions=v1alpha1,name=mbasicauthenticator.kb.io,admissionReviewVersions=v1
 
@@ -41,11 +50,8 @@ var _ webhook.Defaulter = &BasicAuthenticator{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *BasicAuthenticator) Default() {
 	basicauthenticatorlog.Info("default", "name", r.Name)
-
-	// TODO(user): fill in your defaulting logic.
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-authenticator-snappcloud-io-v1alpha1-basicauthenticator,mutating=false,failurePolicy=fail,sideEffects=None,groups=authenticator.snappcloud.io,resources=basicauthenticators,verbs=create;update,versions=v1alpha1,name=vbasicauthenticator.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &BasicAuthenticator{}
@@ -54,7 +60,10 @@ var _ webhook.Validator = &BasicAuthenticator{}
 func (r *BasicAuthenticator) ValidateCreate() error {
 	basicauthenticatorlog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	if err := r.validateCredentials(); err != nil {
+		basicauthenticatorlog.Error(err, "Failed to validate credentials")
+		return err
+	}
 	return nil
 }
 
@@ -62,7 +71,10 @@ func (r *BasicAuthenticator) ValidateCreate() error {
 func (r *BasicAuthenticator) ValidateUpdate(old runtime.Object) error {
 	basicauthenticatorlog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
+	if err := r.validateCredentials(); err != nil {
+		basicauthenticatorlog.Error(err, "Failed to validate credentials")
+		return err
+	}
 	return nil
 }
 
@@ -70,6 +82,31 @@ func (r *BasicAuthenticator) ValidateUpdate(old runtime.Object) error {
 func (r *BasicAuthenticator) ValidateDelete() error {
 	basicauthenticatorlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
+	return nil
+}
+
+func (r *BasicAuthenticator) validateCredentials() error {
+	secretName := r.Spec.CredentialsSecretRef
+	if secretName == "" {
+		return nil
+	}
+
+	ctx := context.Background() //TODO: can be configured to use timeout
+	var credentials v1.Secret
+
+	err := runtimeClient.Get(ctx, types.NamespacedName{Namespace: r.Namespace, Name: secretName}, &credentials)
+	if err != nil {
+		basicauthenticatorlog.Error(err, "failed to fetch secret")
+		return err
+	}
+	basicauthenticatorlog.Info(fmt.Sprintf("%+v", credentials.Data))
+	htpasswdByte, exists := credentials.Data[".htpasswd"]
+	if !exists {
+		return errors.New("illegal format. data missing \".htpasswd\" field")
+	}
+	htpasswdStr := string(htpasswdByte)
+	if !htpasswd.ValidateHtpasswdFormat(strings.TrimSpace(htpasswdStr)) {
+		return errors.New("failed to validate format of htpasswd")
+	}
 	return nil
 }

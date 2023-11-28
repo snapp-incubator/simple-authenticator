@@ -12,6 +12,6 @@ spec:
   type: deployment
   replicas: 1
   appPort: 8081
-  appService: google.com
+  appService: google
   adaptiveScale: false
   authenticatorPort: 8080

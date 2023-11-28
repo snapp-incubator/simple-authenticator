@@ -18,9 +18,10 @@ package main
 
 import (
 	"flag"
+	"os"
+
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	"github.com/snapp-incubator/simple-authenticator/internal/controller/basic_authenticator"
-	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -103,10 +104,10 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "BasicAuthenticator")
 		os.Exit(1)
 	}
-	//if err = (&authenticatorv1alpha1.BasicAuthenticator{}).SetupWebhookWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create webhook", "webhook", "BasicAuthenticator")
-	//	os.Exit(1)
-	//}
+	if err = (&authenticatorv1alpha1.BasicAuthenticator{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "BasicAuthenticator")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
