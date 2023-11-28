@@ -8,7 +8,7 @@ type CustomConfig struct {
 }
 
 type WebserverConfig struct {
-	Image         string `mapstrucutre:"image"`
+	Image         string `mapstructure:"image"`
 	ContainerName string `mapstructure:"container_name"`
 }
 
