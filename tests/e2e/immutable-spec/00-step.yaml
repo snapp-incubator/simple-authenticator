@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl create ns cred-test-spec
+    ignoreFailure: true
+  - command: kubectl apply -f correct-auth.yaml
+    ignoreFailure: true
+  - command: kubectl apply -f changed-auth.yaml
+    ignoreFailure: true
+assert:
+  - assert-auth.yaml

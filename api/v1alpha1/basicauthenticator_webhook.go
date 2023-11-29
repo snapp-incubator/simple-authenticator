@@ -36,6 +36,11 @@ var (
 	ValidationTimeout time.Duration
 )
 
+const (
+	INVALID_OBJECT        = "invalid object passed"
+	INVALID_TYPE_MUTATION = "invalid operation on type"
+)
+
 // log is for logging in this package.
 var basicauthenticatorlog = logf.Log.WithName("basicauthenticator-resource")
 
@@ -78,6 +83,10 @@ func (r *BasicAuthenticator) ValidateUpdate(old runtime.Object) error {
 		basicauthenticatorlog.Error(err, "Failed to validate credentials")
 		return err
 	}
+	if err := r.validateTypeNotChanged(old); err != nil {
+		basicauthenticatorlog.Error(err, "failed update basic authenticator", "basic authenticator name", r.Name)
+		return err
+	}
 	return nil
 }
 
@@ -111,6 +120,18 @@ func (r *BasicAuthenticator) validateCredentials() error {
 	htpasswdStr := string(htpasswdByte)
 	if !htpasswd.ValidateHtpasswdFormat(strings.TrimSpace(htpasswdStr)) {
 		return errors.New("failed to validate format of htpasswd. htpasswd should be like \"username:password\"")
+	}
+	return nil
+}
+
+func (r *BasicAuthenticator) validateTypeNotChanged(old runtime.Object) error {
+	oldBasicAuth, ok := old.(*BasicAuthenticator)
+	if !ok {
+		basicauthenticatorlog.Info("invalid object passed as previous basic authenticator", "type", old.GetObjectKind())
+		return errors.New(INVALID_OBJECT)
+	}
+	if r.Spec.Type != oldBasicAuth.Spec.Type {
+		return errors.New(INVALID_TYPE_MUTATION)
 	}
 	return nil
 }
