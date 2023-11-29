@@ -53,9 +53,9 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 	if r, err := r.GetLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
 		return r, err
 	}
-	credentialName := basicAuthenticator.Spec.CredentialsSecretRef
+	r.credentialName = basicAuthenticator.Spec.CredentialsSecretRef
 	var credentialSecret corev1.Secret
-	if credentialName == "" {
+	if r.credentialName == "" {
 		//create secret
 		newSecret := r.CreateCredentials(basicAuthenticator)
 		err := r.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, &credentialSecret)
@@ -67,12 +67,10 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 				return subreconciler.RequeueWithError(err)
 			}
 
-			credentialName = newSecret.Name
+			r.credentialName = newSecret.Name
 			credentialSecret = *newSecret
-			basicAuthenticator.Spec.CredentialsSecretRef = credentialName
-
+			basicAuthenticator.Spec.CredentialsSecretRef = r.credentialName
 			//saving secretName inorder to be used in next steps
-			assignAnnotation(basicAuthenticator, SecretAnnotation, credentialName)
 			err = r.Update(ctx, basicAuthenticator)
 			if err != nil {
 				logger.Error(err, "failed to updated basic authenticator")
@@ -83,19 +81,12 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 			return subreconciler.Requeue()
 		}
 	} else {
-		err := r.Get(ctx, types.NamespacedName{Name: credentialName, Namespace: basicAuthenticator.Namespace}, &credentialSecret)
+		err := r.Get(ctx, types.NamespacedName{Name: r.credentialName, Namespace: basicAuthenticator.Namespace}, &credentialSecret)
 		if err != nil {
 			logger.Error(err, "failed to fetch secret")
 			return subreconciler.RequeueWithError(err)
 		}
-
-		//saving secretName inorder to be used in next steps
-		assignAnnotation(basicAuthenticator, SecretAnnotation, credentialName)
-		err = r.Update(ctx, basicAuthenticator)
-		if err != nil {
-			logger.Error(err, "failed to updated basic authenticator")
-			return subreconciler.RequeueWithError(err)
-		}
+		r.credentialName = credentialSecret.Name
 	}
 	return subreconciler.ContinueReconciling()
 }
@@ -122,17 +113,13 @@ func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req 
 			return subreconciler.RequeueWithError(err)
 		}
 		//saving secretName inorder to be used in next steps
-		assignAnnotation(basicAuthenticator, ConfigmapAnnotation, authenticatorConfig.Name)
+		r.configMapName = authenticatorConfig.Name
 
-		err = r.Update(ctx, basicAuthenticator)
-		if err != nil {
-			logger.Error(err, "failed to updated basic authenticator")
-			return subreconciler.RequeueWithError(err)
-		}
 		return subreconciler.Requeue()
 	} else if err != nil {
 		logger.Error(err, "failed to fetch configmap")
 		return subreconciler.RequeueWithError(err)
+
 	} else {
 		if !reflect.DeepEqual(authenticatorConfig.Data, foundConfigmap.Data) {
 			logger.Info("updating configmap")
@@ -143,12 +130,7 @@ func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req 
 				return subreconciler.RequeueWithError(err)
 			}
 		}
-		assignAnnotation(basicAuthenticator, ConfigmapAnnotation, authenticatorConfig.Name)
-		err = r.Update(ctx, basicAuthenticator)
-		if err != nil {
-			logger.Error(err, "failed to updated basic authenticator")
-			return subreconciler.RequeueWithError(err)
-		}
+		r.configMapName = authenticatorConfig.Name
 	}
 
 	return subreconciler.ContinueReconciling()
@@ -161,32 +143,29 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 	if r, err := r.GetLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
 		return r, err
 	}
-	if basicAuthenticator.ObjectMeta.Annotations == nil {
-		return subreconciler.RequeueWithError(defaultError.New("configmap annotation and secret annotation must be set"))
 
-	}
-	authenticatorConfigName, configmapExists := basicAuthenticator.ObjectMeta.Annotations[ConfigmapAnnotation]
-	if !configmapExists {
+	//authenticatorConfigName, configmapExists := basicAuthenticator.ObjectMeta.Annotations[ConfigmapAnnotation]
+	if r.configMapName == "" {
 		return subreconciler.RequeueWithError(defaultError.New("configmap annotation not set"))
 	}
 
-	secretName, secretExists := basicAuthenticator.ObjectMeta.Annotations[SecretAnnotation]
-	if !secretExists {
+	//secretName, secretExists := basicAuthenticator.ObjectMeta.Annotations[SecretAnnotation]
+	if r.credentialName == "" {
 		return subreconciler.RequeueWithError(defaultError.New("secret annotation not set"))
 	}
 	//Deciding to create sidecar injection or create deployment
 	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
 	if isSidecar {
-		return r.CreateSidecarAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+		return r.CreateSidecarAuthenticator(ctx, req, basicAuthenticator)
 	} else {
-		return r.CreateDeploymentAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+		return r.CreateDeploymentAuthenticator(ctx, req, basicAuthenticator)
 	}
 }
 
-func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	newDeployment := r.CreateNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName)
+	newDeployment := r.CreateNginxDeployment(basicAuthenticator, r.configMapName, r.credentialName)
 	foundDeployment := &appv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{Name: newDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
 	if errors.IsNotFound(err) {
@@ -231,9 +210,9 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 	return subreconciler.ContinueReconciling()
 }
 
-func (r *BasicAuthenticatorReconciler) CreateSidecarAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) CreateSidecarAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, authenticatorConfigName, secretName)
+	deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, r.configMapName, r.credentialName)
 	if err != nil {
 		logger.Error(err, "failed to inject into deployments")
 		return subreconciler.RequeueWithError(err)
