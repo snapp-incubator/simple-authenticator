@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl create ns cred-test
+    ignoreFailure: true
+  - command: kubectl apply -f correct-secret.yaml
+    ignoreFailure: true
+  - command: kubectl apply -f correct-auth.yaml
+    ignoreFailure: true
+  - command: kubectl apply -f wrong-secret.yaml
+    ignoreFailure: true
+  - command: kubectl apply -f wrong-auth.yaml
+    ignoreFailure: true
+assert:
+  - secret-assert.yaml
+error:
+  - secret-error.yaml

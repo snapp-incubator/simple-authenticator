@@ -15,6 +15,6 @@ spec:
     matchLabels:
       foo: bar
   appPort: 8080
-  appService: test.ns.svc
+  appService: test
   adaptiveScale: false
   authenticatorPort: 8080
