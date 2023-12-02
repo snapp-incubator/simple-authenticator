@@ -18,6 +18,7 @@ package basic_authenticator
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	authenticatorv1alpha1 "github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	appv1 "k8s.io/api/apps/v1"
@@ -37,6 +38,7 @@ type BasicAuthenticatorReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	CustomConfig *config.CustomConfig
+	logger       logr.Logger
 }
 
 //+kubebuilder:rbac:groups=authenticator.snappcloud.io,resources=basicauthenticators,verbs=get;list;watch;create;update;patch;delete
@@ -48,9 +50,9 @@ type BasicAuthenticatorReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	logger.Info("reconcile triggered")
-	logger.Info(req.String())
+	r.logger = log.FromContext(ctx)
+	r.logger.Info("reconcile triggered")
+	r.logger.Info(req.String())
 	return r.Provision(ctx, req)
 }
 
