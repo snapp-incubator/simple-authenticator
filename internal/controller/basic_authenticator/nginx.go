@@ -2,12 +2,10 @@ package basic_authenticator
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
-	"github.com/snapp-incubator/simple-authenticator/pkg/hash"
+	"github.com/snapp-incubator/simple-authenticator/pkg/random_generator"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,26 +46,26 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 		nginxContainerName = customConfig.WebserverConf.ContainerName
 	}
 
-	deploymentName := GenerateRandomName(basicAuthenticator.Name, "deployment")
+	deploymentName := random_generator.GenerateRandomName(basicAuthenticator.Name, "deployment")
 	replicas := int32(basicAuthenticator.Spec.Replicas)
 	authenticatorPort := int32(basicAuthenticator.Spec.AuthenticatorPort)
 
-	labels := map[string]string{"app": deploymentName}
+	basicAuthLabels := map[string]string{"app": deploymentName}
 
 	//TODO: mount secret as volume
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: basicAuthenticator.Namespace,
-			Labels:    labels,
+			Labels:    basicAuthLabels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{MatchLabels: labels},
+			Selector: &metav1.LabelSelector{MatchLabels: basicAuthLabels},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   deploymentName,
-					Labels: labels,
+					Labels: basicAuthLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -120,11 +118,11 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 }
 
 func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.ConfigMap {
-	configmapName := GenerateRandomName(basicAuthenticator.Name, "configmap")
-	labels := map[string]string{
+	configmapName := random_generator.GenerateRandomName(basicAuthenticator.Name, "configmap")
+	basicAuthLabels := map[string]string{
 		"app": basicAuthenticator.Name,
 	}
-	nginxConf := FillTemplate(template, SecretMountPath, basicAuthenticator)
+	nginxConf := fillTemplate(template, SecretMountPath, basicAuthenticator)
 	data := map[string]string{
 		"nginx.conf": nginxConf,
 	}
@@ -132,7 +130,7 @@ func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *core
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configmapName,
 			Namespace: basicAuthenticator.Namespace,
-			Labels:    labels,
+			Labels:    basicAuthLabels,
 		},
 		Data: data,
 	}
@@ -140,9 +138,9 @@ func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *core
 }
 
 func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.Secret {
-	username, password := hash.GenerateRandomString(20), hash.GenerateRandomString(20)
+	username, password := random_generator.GenerateRandomString(20), random_generator.GenerateRandomString(20)
 	htpasswdString := fmt.Sprintf("%s:%s", username, password)
-	secretName := GenerateRandomName(basicAuthenticator.Name, hash.GenerateRandomString(10))
+	secretName := random_generator.GenerateRandomName(basicAuthenticator.Name, random_generator.GenerateRandomString(10))
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -156,15 +154,9 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.
 }
 
 func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string, customConfig *config.CustomConfig, k8Client client.Client) ([]*appsv1.Deployment, error) {
-	nginxImageAddress := nginxDefaultImageAddress
-	if customConfig != nil && customConfig.WebserverConf.Image != "" {
-		nginxImageAddress = customConfig.WebserverConf.Image
-	}
+	nginxImageAddress := getNginxContainerImage(customConfig)
+	nginxContainerName := getNginxContainerName(customConfig)
 
-	nginxContainerName := nginxDefaultContainerName
-	if customConfig != nil && customConfig.WebserverConf.ContainerName != "" {
-		nginxContainerName = customConfig.WebserverConf.ContainerName
-	}
 	authenticatorPort := int32(basicAuthenticator.Spec.AuthenticatorPort)
 	var deploymentList appsv1.DeploymentList
 	if err := k8Client.List(
@@ -228,7 +220,7 @@ func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticat
 	return resultDeployments, nil
 }
 
-func FillTemplate(template string, secretPath string, authenticator *v1alpha1.BasicAuthenticator) string {
+func fillTemplate(template string, secretPath string, authenticator *v1alpha1.BasicAuthenticator) string {
 	var result string
 	var appservice string
 	if authenticator.Spec.Type == "sidecar" {
@@ -241,11 +233,4 @@ func FillTemplate(template string, secretPath string, authenticator *v1alpha1.Ba
 	result = strings.Replace(result, "APP_SERVICE", appservice, 1)
 	result = strings.Replace(result, "APP_PORT", fmt.Sprintf("%d", authenticator.Spec.AppPort), 1)
 	return result
-}
-
-func GenerateRandomName(baseName string, salt string) string {
-	tuple := fmt.Sprintf("%s-%s", baseName, salt)
-	sum := sha256.Sum256([]byte(tuple))
-	subByte := sum[:8]
-	return fmt.Sprintf("%s-%s", baseName, hex.EncodeToString(subByte))
 }

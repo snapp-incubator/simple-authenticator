@@ -34,7 +34,7 @@ func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.R
 	return subreconciler.Evaluate(subreconciler.DoNotRequeue())
 }
 
-func (r *BasicAuthenticatorReconciler) GetLatestBasicAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) getLatestBasicAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	err := r.Get(ctx, req.NamespacedName, basicAuthenticator)
 	if err != nil {
@@ -52,7 +52,7 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 	logger := log.FromContext(ctx)
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
-	if r, err := r.GetLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
 		return r, err
 	}
 	credentialName := basicAuthenticator.Spec.CredentialsSecretRef
@@ -106,7 +106,7 @@ func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req 
 	logger := log.FromContext(ctx)
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
-	if r, err := r.GetLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
 		return r, err
 	}
 
@@ -160,7 +160,7 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 	_ = log.FromContext(ctx)
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
-	if r, err := r.GetLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
 		return r, err
 	}
 	if basicAuthenticator.ObjectMeta.Annotations == nil {
@@ -179,13 +179,13 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 	//Deciding to create sidecar injection or create deployment
 	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
 	if isSidecar {
-		return r.CreateSidecarAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+		return r.createSidecarAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
 	} else {
-		return r.CreateDeploymentAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+		return r.createDeploymentAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
 	}
 }
 
-func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	newDeployment := createNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName, r.CustomConfig)
@@ -197,7 +197,7 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 			return subreconciler.RequeueWithError(err)
 		}
 		if basicAuthenticator.Spec.AdaptiveScale && basicAuthenticator.Spec.AppService != "" {
-			replica, err := r.AcquireTargetReplica(ctx, basicAuthenticator)
+			replica, err := r.acquireTargetReplica(ctx, basicAuthenticator)
 			if err != nil {
 				logger.Error(err, "failed to acquire target replica using adaptiveScale")
 				return subreconciler.RequeueWithError(err)
@@ -228,7 +228,7 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 		//update deployment
 		targetReplica := newDeployment.Spec.Replicas
 		if basicAuthenticator.Spec.AdaptiveScale && basicAuthenticator.Spec.AppService != "" {
-			replica, err := r.AcquireTargetReplica(ctx, basicAuthenticator)
+			replica, err := r.acquireTargetReplica(ctx, basicAuthenticator)
 			if err != nil {
 				logger.Error(err, "failed to acquire target replica using adaptiveScale")
 			}
@@ -264,7 +264,7 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 	return subreconciler.ContinueReconciling()
 }
 
-func (r *BasicAuthenticatorReconciler) CreateSidecarAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
+func (r *BasicAuthenticatorReconciler) createSidecarAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	deploymentsToUpdate, err := injector(ctx, basicAuthenticator, authenticatorConfigName, secretName, r.CustomConfig, r.Client)
 	if err != nil {
@@ -285,7 +285,7 @@ func (r *BasicAuthenticatorReconciler) CreateSidecarAuthenticator(ctx context.Co
 	return subreconciler.ContinueReconciling()
 }
 
-func (r *BasicAuthenticatorReconciler) AcquireTargetReplica(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator) (int32, error) {
+func (r *BasicAuthenticatorReconciler) acquireTargetReplica(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator) (int32, error) {
 	var targetService corev1.Service
 	// service should be in same ns with basic auth
 	if err := r.Get(ctx, types.NamespacedName{Name: basicAuthenticator.Spec.AppService, Namespace: basicAuthenticator.ObjectMeta.Namespace}, &targetService); err != nil {
