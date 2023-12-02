@@ -3,6 +3,7 @@ package basic_authenticator
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	"github.com/snapp-incubator/simple-authenticator/pkg/random_generator"
@@ -130,10 +131,21 @@ func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *core
 	return configMap
 }
 
-func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.Secret {
-	username, password := random_generator.GenerateRandomString(20), random_generator.GenerateRandomString(20)
+func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1.Secret, error) {
+	username, err := random_generator.GenerateRandomString(20)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate username")
+	}
+	password, err := random_generator.GenerateRandomString(20)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate password")
+	}
 	htpasswdString := fmt.Sprintf("%s:%s", username, password)
-	secretName := random_generator.GenerateRandomName(basicAuthenticator.Name, random_generator.GenerateRandomString(10))
+	salt, err := random_generator.GenerateRandomString(10)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate salt")
+	}
+	secretName := random_generator.GenerateRandomName(basicAuthenticator.Name, salt)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -143,7 +155,7 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.
 			".htpasswd": htpasswdString,
 		},
 	}
-	return secret
+	return secret, nil
 }
 
 func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string, customConfig *config.CustomConfig, k8Client client.Client) ([]*appsv1.Deployment, error) {

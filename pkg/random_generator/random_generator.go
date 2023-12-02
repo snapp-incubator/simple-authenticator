@@ -7,16 +7,19 @@ import (
 	"fmt"
 )
 
-func GenerateRandomString(length int) string {
+func GenerateRandomString(length int) (string, error) {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	randomBytes := make([]byte, length)
-	rand.Read(randomBytes)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", err
+	}
 	for i := range randomBytes {
 		randomBytes[i] = charset[int(randomBytes[i])%len(charset)]
 	}
 
-	return string(randomBytes)
+	return string(randomBytes), nil
 }
 
 func GenerateRandomName(baseName string, salt string) string {

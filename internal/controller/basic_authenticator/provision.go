@@ -59,8 +59,12 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 	var credentialSecret corev1.Secret
 	if credentialName == "" {
 		//create secret
-		newSecret := createCredentials(basicAuthenticator)
-		err := r.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, &credentialSecret)
+		newSecret, err := createCredentials(basicAuthenticator)
+		if err != nil {
+			logger.Error(err, "failed to create credentials")
+			return subreconciler.RequeueWithError(err)
+		}
+		err = r.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, &credentialSecret)
 		if errors.IsNotFound(err) {
 			if err := ctrl.SetControllerReference(basicAuthenticator, newSecret, r.Scheme); err != nil {
 				logger.Error(err, "failed to set secret owner")
