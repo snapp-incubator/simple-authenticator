@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
+	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	"github.com/snapp-incubator/simple-authenticator/pkg/hash"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,15 +37,15 @@ const (
 )
 
 // TODO: come up with better name that "nginx"
-func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string) *appsv1.Deployment {
+func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string, customConfig *config.CustomConfig) *appsv1.Deployment {
 	nginxImageAddress := nginxDefaultImageAddress
-	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.Image != "" {
-		nginxImageAddress = r.CustomConfig.WebserverConf.Image
+	if customConfig != nil && customConfig.WebserverConf.Image != "" {
+		nginxImageAddress = customConfig.WebserverConf.Image
 	}
 
 	nginxContainerName := nginxDefaultContainerName
-	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.ContainerName != "" {
-		nginxContainerName = r.CustomConfig.WebserverConf.ContainerName
+	if customConfig != nil && customConfig.WebserverConf.ContainerName != "" {
+		nginxContainerName = customConfig.WebserverConf.ContainerName
 	}
 
 	deploymentName := GenerateRandomName(basicAuthenticator.Name, "deployment")
@@ -118,7 +119,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxDeployment(basicAuthenticator 
 	return deploy
 }
 
-func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.ConfigMap {
+func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.ConfigMap {
 	configmapName := GenerateRandomName(basicAuthenticator.Name, "configmap")
 	labels := map[string]string{
 		"app": basicAuthenticator.Name,
@@ -138,7 +139,7 @@ func (r *BasicAuthenticatorReconciler) CreateNginxConfigmap(basicAuthenticator *
 	return configMap
 }
 
-func (r *BasicAuthenticatorReconciler) CreateCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.Secret {
+func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.Secret {
 	username, password := hash.GenerateRandomString(20), hash.GenerateRandomString(20)
 	htpasswdString := fmt.Sprintf("%s:%s", username, password)
 	secretName := GenerateRandomName(basicAuthenticator.Name, hash.GenerateRandomString(10))
@@ -154,19 +155,19 @@ func (r *BasicAuthenticatorReconciler) CreateCredentials(basicAuthenticator *v1a
 	return secret
 }
 
-func (r *BasicAuthenticatorReconciler) Injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string) ([]*appsv1.Deployment, error) {
+func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string, customConfig *config.CustomConfig, k8Client client.Client) ([]*appsv1.Deployment, error) {
 	nginxImageAddress := nginxDefaultImageAddress
-	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.Image != "" {
-		nginxImageAddress = r.CustomConfig.WebserverConf.Image
+	if customConfig != nil && customConfig.WebserverConf.Image != "" {
+		nginxImageAddress = customConfig.WebserverConf.Image
 	}
 
 	nginxContainerName := nginxDefaultContainerName
-	if r.CustomConfig != nil && r.CustomConfig.WebserverConf.ContainerName != "" {
-		nginxContainerName = r.CustomConfig.WebserverConf.ContainerName
+	if customConfig != nil && customConfig.WebserverConf.ContainerName != "" {
+		nginxContainerName = customConfig.WebserverConf.ContainerName
 	}
 	authenticatorPort := int32(basicAuthenticator.Spec.AuthenticatorPort)
 	var deploymentList appsv1.DeploymentList
-	if err := r.Client.List(
+	if err := k8Client.List(
 		ctx,
 		&deploymentList,
 		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(basicAuthenticator.Spec.Selector.MatchLabels)},

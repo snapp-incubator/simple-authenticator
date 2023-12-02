@@ -59,7 +59,7 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 	var credentialSecret corev1.Secret
 	if credentialName == "" {
 		//create secret
-		newSecret := r.CreateCredentials(basicAuthenticator)
+		newSecret := createCredentials(basicAuthenticator)
 		err := r.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, &credentialSecret)
 		if errors.IsNotFound(err) {
 			// update basic auth
@@ -110,7 +110,7 @@ func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req 
 		return r, err
 	}
 
-	authenticatorConfig := r.CreateNginxConfigmap(basicAuthenticator)
+	authenticatorConfig := createNginxConfigmap(basicAuthenticator)
 	var foundConfigmap corev1.ConfigMap
 	err := r.Get(ctx, types.NamespacedName{Name: authenticatorConfig.Name, Namespace: basicAuthenticator.Namespace}, &foundConfigmap)
 	if errors.IsNotFound(err) {
@@ -188,7 +188,7 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	newDeployment := r.CreateNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName)
+	newDeployment := createNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName, r.CustomConfig)
 	foundDeployment := &appv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{Name: newDeployment.Name, Namespace: basicAuthenticator.Namespace}, foundDeployment)
 	if errors.IsNotFound(err) {
@@ -266,7 +266,7 @@ func (r *BasicAuthenticatorReconciler) CreateDeploymentAuthenticator(ctx context
 
 func (r *BasicAuthenticatorReconciler) CreateSidecarAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	deploymentsToUpdate, err := r.Injector(ctx, basicAuthenticator, authenticatorConfigName, secretName)
+	deploymentsToUpdate, err := injector(ctx, basicAuthenticator, authenticatorConfigName, secretName, r.CustomConfig, r.Client)
 	if err != nil {
 		logger.Error(err, "failed to inject into deployments")
 		return subreconciler.RequeueWithError(err)
