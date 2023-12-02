@@ -4,11 +4,16 @@ import "github.com/spf13/viper"
 
 type CustomConfig struct {
 	WebserverConf WebserverConfig `mapstructure:"webserver"`
+	WebhookConf   WebhookConfig   `mapstructure:"webhook"`
 }
 
 type WebserverConfig struct {
-	Image         string `mapstrucutre:"image"`
+	Image         string `mapstructure:"image"`
 	ContainerName string `mapstructure:"container_name"`
+}
+
+type WebhookConfig struct {
+	ValidationTimeoutSecond int `mapstructure:"validation_timeout_second"`
 }
 
 func InitConfig(configPath string) (*CustomConfig, error) {

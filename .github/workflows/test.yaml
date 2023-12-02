@@ -26,6 +26,15 @@ jobs:
           cluster_name: kind
           config: ./kind-config.yaml
 
+      - name: Install cert-manager
+        run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.2/cert-manager.yaml
+
+      - name: Wait for certmanager to be ready
+        run: |
+          kubectl wait --for=condition=available --timeout=300s deployment.apps/cert-manager -n cert-manager
+          kubectl wait --for=condition=available --timeout=300s deployment.apps/cert-manager-cainjector  -n cert-manager
+          kubectl wait --for=condition=available --timeout=300s deployment.apps/cert-manager-webhook   -n cert-manager
+
       - name: build operator
         run: make docker-build IMG=basic-authentication-operator:latest
 

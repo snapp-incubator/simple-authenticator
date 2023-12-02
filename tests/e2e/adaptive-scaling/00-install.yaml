@@ -1,0 +1,52 @@
+apiVersion: authenticator.snappcloud.io/v1alpha1
+kind: BasicAuthenticator
+metadata:
+  labels:
+    app.kubernetes.io/name: basicauthenticator
+    app.kubernetes.io/instance: basicauthenticator-sample
+    app.kubernetes.io/part-of: basicauthenticator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: basicauthenticator
+  name: basicauthenticator-sample
+spec:
+  type: deployment
+  replicas: 1
+  appPort: 8080
+  appService: my-service
+  adaptiveScale: true
+  authenticatorPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-deployment
+  labels:
+    test: fal
+    foo: bar
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      foo: bar
+  template:
+    metadata:
+      labels:
+        foo: bar
+    spec:
+      containers:
+        - name: curl-container
+          image: curlimages/curl:latest
+          command: ["sleep", "infinity"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    foo: bar
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
