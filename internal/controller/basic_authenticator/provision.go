@@ -75,7 +75,6 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 			}
 
 			r.credentialName = newSecret.Name
-			credentialSecret = *newSecret
 			basicAuthenticator.Spec.CredentialsSecretRef = r.credentialName
 			//saving secretName inorder to be used in next steps
 			err = r.Update(ctx, basicAuthenticator)
@@ -84,8 +83,6 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 				return subreconciler.RequeueWithError(err)
 			}
 
-		} else {
-			return subreconciler.Requeue()
 		}
 	} else {
 		err := r.Get(ctx, types.NamespacedName{Name: r.credentialName, Namespace: basicAuthenticator.Namespace}, &credentialSecret)
@@ -121,7 +118,6 @@ func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req 
 		//saving secretName inorder to be used in next steps
 		r.configMapName = authenticatorConfig.Name
 
-		return subreconciler.Requeue()
 	} else if err != nil {
 		r.logger.Error(err, "failed to fetch configmap")
 		return subreconciler.RequeueWithError(err)
@@ -148,21 +144,19 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 		return r, err
 	}
 
-	//authenticatorConfigName, configmapExists := basicAuthenticator.ObjectMeta.Annotations[ConfigmapAnnotation]
 	if r.configMapName == "" {
-		return subreconciler.RequeueWithError(defaultError.New("configmap annotation not set"))
+		return subreconciler.RequeueWithError(defaultError.New("configmap's name not set. failed to ensure deployment"))
 	}
 
-	//secretName, secretExists := basicAuthenticator.ObjectMeta.Annotations[SecretAnnotation]
 	if r.credentialName == "" {
-		return subreconciler.RequeueWithError(defaultError.New("secret annotation not set"))
+		return subreconciler.RequeueWithError(defaultError.New("secret's name not set. failed to ensure deployment"))
 	}
 	//Deciding to create sidecar injection or create deployment
 	isSidecar := basicAuthenticator.Spec.Type == "sidecar"
 	if isSidecar {
-		return r.createSidecarAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+		return r.createSidecarAuthenticator(ctx, req, basicAuthenticator, r.configMapName, r.credentialName)
 	} else {
-		return r.createDeploymentAuthenticator(ctx, req, basicAuthenticator, authenticatorConfigName, secretName)
+		return r.createDeploymentAuthenticator(ctx, req, basicAuthenticator, r.configMapName, r.credentialName)
 	}
 }
 
@@ -184,7 +178,6 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 			}
 			newDeployment.Spec.Replicas = &replica
 		}
-
 		//create deployment
 		err := r.Create(ctx, newDeployment)
 		if err != nil {
@@ -193,7 +186,6 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 		}
 		r.logger.Info("created deployment")
 
-		return subreconciler.Requeue()
 	} else if err != nil {
 		if err != nil {
 			r.logger.Error(err, "failed to fetch deployment")
