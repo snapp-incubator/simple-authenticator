@@ -4,7 +4,7 @@ import "github.com/spf13/viper"
 
 type CustomConfig struct {
 	WebserverConf WebserverConfig `mapstructure:"webserver"`
-	WebhookConf   WebhookConfig   `mapstrucutre:"webhook"`
+	WebhookConf   WebhookConfig   `mapstructure:"webhook"`
 }
 
 type WebserverConfig struct {
