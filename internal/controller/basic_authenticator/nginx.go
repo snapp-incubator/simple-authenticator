@@ -36,15 +36,8 @@ const (
 
 // TODO: come up with better name that "nginx"
 func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string, customConfig *config.CustomConfig) *appsv1.Deployment {
-	nginxImageAddress := nginxDefaultImageAddress
-	if customConfig != nil && customConfig.WebserverConf.Image != "" {
-		nginxImageAddress = customConfig.WebserverConf.Image
-	}
-
-	nginxContainerName := nginxDefaultContainerName
-	if customConfig != nil && customConfig.WebserverConf.ContainerName != "" {
-		nginxContainerName = customConfig.WebserverConf.ContainerName
-	}
+	nginxImageAddress := getNginxContainerImage(customConfig)
+	nginxContainerName := getNginxContainerName(customConfig)
 
 	deploymentName := random_generator.GenerateRandomName(basicAuthenticator.Name, "deployment")
 	replicas := int32(basicAuthenticator.Spec.Replicas)
