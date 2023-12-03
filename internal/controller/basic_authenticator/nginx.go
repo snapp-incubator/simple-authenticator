@@ -136,16 +136,16 @@ func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *core
 }
 
 func updateHtpasswdField(secret *corev1.Secret) error {
-	username, ok := secret.StringData["username"]
+	username, ok := secret.Data["username"]
 	if !ok {
 		return defaultError.New("username not found in secret")
 	}
-	password, ok := secret.StringData["password"]
+	password, ok := secret.Data["password"]
 	if !ok {
 		return defaultError.New("password not found in secret")
 	}
-	htpasswdString := fmt.Sprintf("%s:%s", username, md5.MD5Hash(password))
-	secret.StringData["htpasswd"] = htpasswdString
+	htpasswdString := fmt.Sprintf("%s:%s", string(username), md5.MD5Hash(string(password)))
+	secret.Data["htpasswd"] = []byte(htpasswdString)
 	return nil
 }
 func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1.Secret, error) {
@@ -167,9 +167,9 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1
 			Name:      secretName,
 			Namespace: basicAuthenticator.Namespace,
 		},
-		StringData: map[string]string{
-			"username": username,
-			"password": password,
+		Data: map[string][]byte{
+			"username": []byte(username),
+			"password": []byte(password),
 		},
 	}
 	return secret, nil

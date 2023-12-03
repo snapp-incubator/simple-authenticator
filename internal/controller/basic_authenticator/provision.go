@@ -87,6 +87,7 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 				r.logger.Error(err, "failed to updated basic authenticator")
 				return subreconciler.RequeueWithError(err)
 			}
+			r.logger.Info("debug", "inside credentialName", r.credentialName)
 		} else if err != nil {
 			r.logger.Error(err, "failed to fetch secret with new name")
 			return subreconciler.RequeueWithError(err)
@@ -95,6 +96,16 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 		err := r.Get(ctx, types.NamespacedName{Name: r.credentialName, Namespace: basicAuthenticator.Namespace}, &credentialSecret)
 		if err != nil {
 			r.logger.Error(err, "failed to fetch secret")
+			return subreconciler.RequeueWithError(err)
+		}
+		err = updateHtpasswdField(&credentialSecret)
+		if err != nil {
+			r.logger.Error(err, "failed to add secret to include htpasswd field", "credential secret", credentialSecret)
+			return subreconciler.RequeueWithError(err)
+		}
+		err = r.Update(ctx, &credentialSecret)
+		if err != nil {
+			r.logger.Error(err, "failed to update secret to add htpasswd field")
 			return subreconciler.RequeueWithError(err)
 		}
 		r.credentialName = credentialSecret.Name
