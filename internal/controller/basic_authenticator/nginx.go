@@ -2,10 +2,12 @@ package basic_authenticator
 
 import (
 	"context"
+	defaultError "errors"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
+	"github.com/snapp-incubator/simple-authenticator/pkg/md5"
 	"github.com/snapp-incubator/simple-authenticator/pkg/random_generator"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,9 +18,10 @@ import (
 )
 
 const (
-	ConfigMountPath = "/etc/nginx/conf.d"
-	SecretMountDir  = "/etc/secret"
-	SecretMountPath = "/etc/secret/.htpasswd"
+	ConfigMountPath     = "/etc/nginx/conf.d"
+	SecretMountDir      = "/etc/secret"
+	SecretMountPath     = "/etc/secret/htpasswd"
+	SecretHtpasswdField = "htpasswd"
 	//TODO: maybe using better templating?
 	template = `server {
 	listen AUTHENTICATOR_PORT;
@@ -79,6 +82,7 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 								{
 									Name:      credentialName,
 									MountPath: SecretMountDir,
+									SubPath:   SecretHtpasswdField,
 								},
 							},
 						},
@@ -131,6 +135,19 @@ func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *core
 	return configMap
 }
 
+func updateHtpasswdField(secret *corev1.Secret) error {
+	username, ok := secret.StringData["username"]
+	if !ok {
+		return defaultError.New("username not found in secret")
+	}
+	password, ok := secret.StringData["password"]
+	if !ok {
+		return defaultError.New("password not found in secret")
+	}
+	htpasswdString := fmt.Sprintf("%s:%s", username, md5.MD5Hash(password))
+	secret.StringData["htpasswd"] = htpasswdString
+	return nil
+}
 func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1.Secret, error) {
 	username, err := random_generator.GenerateRandomString(20)
 	if err != nil {
@@ -140,7 +157,6 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate password")
 	}
-	htpasswdString := fmt.Sprintf("%s:%s", username, password)
 	salt, err := random_generator.GenerateRandomString(10)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate salt")
@@ -152,7 +168,8 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1
 			Namespace: basicAuthenticator.Namespace,
 		},
 		StringData: map[string]string{
-			".htpasswd": htpasswdString,
+			"username": username,
+			"password": password,
 		},
 	}
 	return secret, nil
@@ -199,6 +216,7 @@ func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticat
 				{
 					Name:      credentialName,
 					MountPath: SecretMountDir,
+					SubPath:   SecretHtpasswdField,
 				},
 			},
 		})

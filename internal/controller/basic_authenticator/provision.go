@@ -61,19 +61,24 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 			r.logger.Error(err, "failed to create credentials")
 			return subreconciler.RequeueWithError(err)
 		}
+		err = updateHtpasswdField(newSecret)
+		if err != nil {
+			r.logger.Error(err, "failed to update secret to include htpasswd field")
+			return subreconciler.RequeueWithError(err)
+		}
 		err = r.Get(ctx, types.NamespacedName{Name: newSecret.Name, Namespace: newSecret.Namespace}, &credentialSecret)
 		if errors.IsNotFound(err) {
 			if err := ctrl.SetControllerReference(basicAuthenticator, newSecret, r.Scheme); err != nil {
 				r.logger.Error(err, "failed to set secret owner")
 				return subreconciler.RequeueWithError(err)
 			}
+
 			// update basic auth
-			err := r.Create(ctx, newSecret)
+			err = r.Create(ctx, newSecret)
 			if err != nil {
 				r.logger.Error(err, "failed to create new secret")
 				return subreconciler.RequeueWithError(err)
 			}
-
 			r.credentialName = newSecret.Name
 			basicAuthenticator.Spec.CredentialsSecretRef = r.credentialName
 			//saving secretName inorder to be used in next steps
@@ -82,7 +87,9 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 				r.logger.Error(err, "failed to updated basic authenticator")
 				return subreconciler.RequeueWithError(err)
 			}
-
+		} else if err != nil {
+			r.logger.Error(err, "failed to fetch secret with new name")
+			return subreconciler.RequeueWithError(err)
 		}
 	} else {
 		err := r.Get(ctx, types.NamespacedName{Name: r.credentialName, Namespace: basicAuthenticator.Namespace}, &credentialSecret)
