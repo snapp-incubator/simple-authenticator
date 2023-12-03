@@ -36,9 +36,12 @@ import (
 // BasicAuthenticatorReconciler reconciles a BasicAuthenticator object
 type BasicAuthenticatorReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	CustomConfig *config.CustomConfig
-	logger       logr.Logger
+	Scheme                      *runtime.Scheme
+	CustomConfig                *config.CustomConfig
+	configMapName               string
+	credentialName              string
+	basicAuthenticatorNamespace string
+	logger                      logr.Logger
 }
 
 //+kubebuilder:rbac:groups=authenticator.snappcloud.io,resources=basicauthenticators,verbs=get;list;watch;create;update;patch;delete
@@ -53,7 +56,13 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 	r.logger = log.FromContext(ctx)
 	r.logger.Info("reconcile triggered")
 	r.logger.Info(req.String())
+	r.initVars(req)
 	return r.Provision(ctx, req)
+}
+
+func (r *BasicAuthenticatorReconciler) initVars(request ctrl.Request) {
+	r.basicAuthenticatorNamespace = request.Namespace
+	//configmap name and credential name's value would be set in reconcile loop
 }
 
 // SetupWithManager sets up the controller with the Manager.
