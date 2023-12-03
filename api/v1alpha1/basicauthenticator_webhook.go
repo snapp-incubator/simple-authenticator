@@ -112,14 +112,20 @@ func (r *BasicAuthenticator) validateCredentials() error {
 		basicauthenticatorlog.Error(err, "failed to fetch secret")
 		return err
 	}
-
-	htpasswdByte, exists := credentials.Data[".htpasswd"]
+	_, exists := credentials.Data["username"]
 	if !exists {
-		return errors.New("illegal format. data missing \".htpasswd\" field")
+		return errors.New("illegal format. data missing username field")
 	}
-	htpasswdStr := string(htpasswdByte)
-	if !htpasswd.ValidateHtpasswdFormat(strings.TrimSpace(htpasswdStr)) {
-		return errors.New("failed to validate format of htpasswd. htpasswd should be like \"username:password\"")
+	_, exists = credentials.Data["password"]
+	if !exists {
+		return errors.New("illegal format. data missing password field")
+	}
+	htpasswdByte, exists := credentials.Data["htpasswd"]
+	if exists {
+		htpasswdStr := string(htpasswdByte)
+		if !htpasswd.ValidateHtpasswdFormat(strings.TrimSpace(htpasswdStr)) {
+			return errors.New("failed to validate format of htpasswd. htpasswd should be like \"username:password\"")
+		}
 	}
 	return nil
 }

@@ -2,10 +2,12 @@ package basic_authenticator
 
 import (
 	"context"
+	defaultError "errors"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
+	"github.com/snapp-incubator/simple-authenticator/pkg/md5"
 	"github.com/snapp-incubator/simple-authenticator/pkg/random_generator"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,26 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-)
-
-const (
-	ConfigMountPath = "/etc/nginx/conf.d"
-	SecretMountDir  = "/etc/secret"
-	SecretMountPath = "/etc/secret/.htpasswd"
-	//TODO: maybe using better templating?
-	template = `server {
-	listen AUTHENTICATOR_PORT;
-	location / {
-		resolver    8.8.8.8;
-		auth_basic	"basic authentication area";
-		auth_basic_user_file "FILE_PATH";
-		proxy_pass http://APP_SERVICE:APP_PORT;
-		proxy_set_header Host $host;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-		proxy_set_header X-Forwarded-Proto $scheme;
-	}
-}`
 )
 
 // TODO: come up with better name that "nginx"
@@ -79,6 +61,7 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 								{
 									Name:      credentialName,
 									MountPath: SecretMountDir,
+									SubPath:   SecretHtpasswdField,
 								},
 							},
 						},
@@ -131,6 +114,19 @@ func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *core
 	return configMap
 }
 
+func updateHtpasswdField(secret *corev1.Secret) error {
+	username, ok := secret.Data["username"]
+	if !ok {
+		return defaultError.New("username not found in secret")
+	}
+	password, ok := secret.Data["password"]
+	if !ok {
+		return defaultError.New("password not found in secret")
+	}
+	htpasswdString := fmt.Sprintf("%s:%s", string(username), md5.MD5Hash(string(password)))
+	secret.Data["htpasswd"] = []byte(htpasswdString)
+	return nil
+}
 func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1.Secret, error) {
 	username, err := random_generator.GenerateRandomString(20)
 	if err != nil {
@@ -140,7 +136,6 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate password")
 	}
-	htpasswdString := fmt.Sprintf("%s:%s", username, password)
 	salt, err := random_generator.GenerateRandomString(10)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate salt")
@@ -151,8 +146,9 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1
 			Name:      secretName,
 			Namespace: basicAuthenticator.Namespace,
 		},
-		StringData: map[string]string{
-			".htpasswd": htpasswdString,
+		Data: map[string][]byte{
+			"username": []byte(username),
+			"password": []byte(password),
 		},
 	}
 	return secret, nil
@@ -199,6 +195,7 @@ func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticat
 				{
 					Name:      credentialName,
 					MountPath: SecretMountDir,
+					SubPath:   SecretHtpasswdField,
 				},
 			},
 		})
