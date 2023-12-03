@@ -17,27 +17,6 @@ import (
 	"strings"
 )
 
-const (
-	ConfigMountPath     = "/etc/nginx/conf.d"
-	SecretMountDir      = "/etc/secret"
-	SecretMountPath     = "/etc/secret/htpasswd"
-	SecretHtpasswdField = "htpasswd"
-	//TODO: maybe using better templating?
-	template = `server {
-	listen AUTHENTICATOR_PORT;
-	location / {
-		resolver    8.8.8.8;
-		auth_basic	"basic authentication area";
-		auth_basic_user_file "FILE_PATH";
-		proxy_pass http://APP_SERVICE:APP_PORT;
-		proxy_set_header Host $host;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-		proxy_set_header X-Forwarded-Proto $scheme;
-	}
-}`
-)
-
 // TODO: come up with better name that "nginx"
 func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string, customConfig *config.CustomConfig) *appsv1.Deployment {
 	nginxImageAddress := getNginxContainerImage(customConfig)
