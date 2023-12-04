@@ -1,12 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "chart.fullname" . }}-metrics-reader
+  name: {{ include "simple-authenticator.fullname" . }}-metrics-reader
   labels:
     app.kubernetes.io/component: kube-rbac-proxy
     app.kubernetes.io/created-by: basicauthenticator
     app.kubernetes.io/part-of: basicauthenticator
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "simple-authenticator.labels" . | nindent 4 }}
 rules:
 - nonResourceURLs:
   - /metrics

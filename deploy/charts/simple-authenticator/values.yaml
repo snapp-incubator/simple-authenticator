@@ -31,8 +31,8 @@ controllerManager:
         drop:
         - ALL
     image:
-      repository: localhost/test
-      tag: v11
+      repository: localhost/webhook-test
+      tag: v4
     imagePullPolicy: IfNotPresent
     resources:
       limits:

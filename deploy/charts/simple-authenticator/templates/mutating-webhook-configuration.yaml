@@ -1,17 +1,17 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: {{ include "chart.fullname" . }}-mutating-webhook-configuration
+  name: {{ include "simple-authenticator.fullname" . }}-mutating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "chart.fullname" . }}-serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "simple-authenticator.fullname" . }}-serving-cert
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "simple-authenticator.labels" . | nindent 4 }}
 webhooks:
 - admissionReviewVersions:
   - v1
   clientConfig:
     service:
-      name: '{{ include "chart.fullname" . }}-webhook-service'
+      name: '{{ include "simple-authenticator.fullname" . }}-webhook-service'
       namespace: '{{ .Release.Namespace }}'
       path: /mutate-authenticator-snappcloud-io-v1alpha1-basicauthenticator
   failurePolicy: Fail

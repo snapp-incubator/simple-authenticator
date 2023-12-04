@@ -3,18 +3,18 @@ kind: CustomResourceDefinition
 metadata:
   name: basicauthenticators.authenticator.snappcloud.io
   annotations:
-    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ include "chart.fullname"
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ include "simple-authenticator.fullname"
       . }}-serving-cert'
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "simple-authenticator.labels" . | nindent 4 }}
 spec:
   conversion:
     strategy: Webhook
     webhook:
       clientConfig:
         service:
-          name: '{{ include "chart.fullname" . }}-webhook-service'
+          name: '{{ include "simple-authenticator.fullname" . }}-webhook-service'
           namespace: '{{ .Release.Namespace }}'
           path: /convert
       conversionReviewVersions:
