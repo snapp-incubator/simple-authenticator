@@ -1,0 +1,46 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: basicauthenticator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: BasicAuthenticator is the Schema for the basicauthenticators API
+      displayName: Basic Authenticator
+      kind: BasicAuthenticator
+      name: basicauthenticators.authenticator.snappcloud.io
+      version: v1alpha1
+  description: |
+    Providing basic authentication for specified workloads
+  displayName: Simple Authenticator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - Basic Authentication
+  links:
+  - name: Basicauthenticator
+    url: https://basicauthenticator.domain
+  maturity: alpha
+  provider:
+    name: Snappcloud
+    url: https://github.com/snapp-incubator
+  version: 0.0.0
