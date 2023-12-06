@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "simple-authenticator.fullname" . }}-serving-cert
+  labels:
+  {{- include "simple-authenticator.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - '{{ include "simple-authenticator.fullname" . }}-webhook-service.{{ .Release.Namespace
+    }}.svc'
+  - '{{ include "simple-authenticator.fullname" . }}-webhook-service.{{ .Release.Namespace
+    }}.svc.{{ .Values.kubernetesClusterDomain }}'
+  issuerRef:
+    kind: Issuer
+    name: '{{ include "simple-authenticator.fullname" . }}-selfsigned-issuer'
+  secretName: webhook-server-cert
