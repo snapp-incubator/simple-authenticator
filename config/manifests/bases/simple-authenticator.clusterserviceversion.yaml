@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-  name: basicauthenticator.v0.0.0
+  name: simple-authenticator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -36,8 +36,8 @@ spec:
   keywords:
   - basic-authenticator
   links:
-  - name: Basicauthenticator
-    url: https://basicauthenticator.domain
+  - name: Simple Authenticator
+    url: https://simple-authenticator.domain
   maintainers:
   - email: sina.amininasab@snapp.cab
     name: sina
