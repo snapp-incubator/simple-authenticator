@@ -15,9 +15,8 @@ spec:
       kind: BasicAuthenticator
       name: basicauthenticators.authenticator.snappcloud.io
       version: v1alpha1
-  description: |
-    Providing basic authentication for specified workloads
-  displayName: Simple Authenticator
+  description: Kind of an authentication offloader
+  displayName: simple-authenticator
   icon:
   - base64data: ""
     mediatype: ""
@@ -35,10 +34,13 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - Basic Authentication
+  - basic-authenticator
   links:
   - name: Basicauthenticator
     url: https://basicauthenticator.domain
+  maintainers:
+  - email: sina.amininasab@snapp.cab
+    name: sina
   maturity: alpha
   provider:
     name: Snappcloud
