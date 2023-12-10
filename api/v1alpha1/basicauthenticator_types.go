@@ -35,6 +35,10 @@ type BasicAuthenticatorSpec struct {
 	// +kubebuilder:validation:Optional
 	Selector metav1.LabelSelector `json:"selector,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=ClusterIP
+	ServiceType string `json:"serviceType"`
+
 	// +kubebuilder:validation:Required
 	AppPort int `json:"appPort"`
 

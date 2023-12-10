@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
@@ -90,7 +91,6 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 			},
 		},
 	}
-
 	return deploy
 }
 
@@ -153,7 +153,29 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1
 	}
 	return secret, nil
 }
-
+func createNginxService(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, selector *metav1.LabelSelector) *corev1.Service {
+	serviceName := fmt.Sprintf("%s-svc", basicAuthenticator.Name)
+	serviceType := getServiceType(basicAuthenticator.Spec.ServiceType)
+	targetPort := intstr.IntOrString{Type: intstr.Int, IntVal: int32(basicAuthenticator.Spec.AuthenticatorPort)}
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: basicAuthenticator.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: selector.MatchLabels,
+			Type:     serviceType,
+			Ports: []corev1.ServicePort{
+				{
+					Port:       int32(basicAuthenticator.Spec.AuthenticatorPort),
+					TargetPort: targetPort,
+					Name:       "authenticator",
+				},
+			},
+		},
+	}
+	return &svc
+}
 func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticator, configMapName string, credentialName string, customConfig *config.CustomConfig, k8Client client.Client) ([]*appsv1.Deployment, error) {
 	nginxImageAddress := getNginxContainerImage(customConfig)
 	nginxContainerName := getNginxContainerName(customConfig)
@@ -235,4 +257,15 @@ func fillTemplate(template string, secretPath string, authenticator *v1alpha1.Ba
 	result = strings.Replace(result, "APP_SERVICE", appservice, 1)
 	result = strings.Replace(result, "APP_PORT", fmt.Sprintf("%d", authenticator.Spec.AppPort), 1)
 	return result
+}
+
+func getServiceType(serviceType string) corev1.ServiceType {
+	switch serviceType {
+	case "NodePort":
+		return corev1.ServiceTypeNodePort
+	case "LoadBalancer":
+		return corev1.ServiceTypeLoadBalancer
+	default:
+		return corev1.ServiceTypeClusterIP
+	}
 }

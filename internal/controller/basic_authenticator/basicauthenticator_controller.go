@@ -23,6 +23,7 @@ import (
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,6 +42,7 @@ type BasicAuthenticatorReconciler struct {
 	configMapName               string
 	credentialName              string
 	basicAuthenticatorNamespace string
+	deploymentLabel             *v1.LabelSelector
 	logger                      logr.Logger
 }
 
@@ -63,6 +65,7 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *BasicAuthenticatorReconciler) initVars(request ctrl.Request) {
 	r.basicAuthenticatorNamespace = request.Namespace
 	//configmap name and credential name's value would be set in reconcile loop
+
 }
 
 // SetupWithManager sets up the controller with the Manager.

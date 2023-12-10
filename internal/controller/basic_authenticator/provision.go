@@ -22,6 +22,7 @@ func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.R
 		r.ensureSecret,
 		r.ensureConfigmap,
 		r.ensureDeployment,
+		r.ensureService,
 	}
 	for _, provisioner := range subProvisioner {
 		result, err := provisioner(ctx, req)
@@ -177,7 +178,45 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 		return r.createDeploymentAuthenticator(ctx, req, basicAuthenticator, r.configMapName, r.credentialName)
 	}
 }
+func (r *BasicAuthenticatorReconciler) ensureService(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+		return r, err
+	}
+	if r.deploymentLabel == nil {
+		return subreconciler.ContinueReconciling()
+	}
+	newService := createNginxService(ctx, basicAuthenticator, r.deploymentLabel)
+	foundService := corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: newService.Name, Namespace: newService.Namespace}, &foundService)
+	if errors.IsNotFound(err) {
+		if err := ctrl.SetControllerReference(basicAuthenticator, newService, r.Scheme); err != nil {
+			r.logger.Error(err, "failed to set service owner")
+			return subreconciler.RequeueWithError(err)
+		}
+		err := r.Create(ctx, newService)
+		if err != nil {
+			r.logger.Error(err, "failed to create new service")
+			return subreconciler.RequeueWithError(err)
+		}
+
+	} else if err != nil {
+		r.logger.Error(err, "failed to fetch service")
+		return subreconciler.RequeueWithError(err)
+	} else {
+		if !reflect.DeepEqual(newService.Spec, foundService.Spec) {
+			r.logger.Info("updating service")
+			foundService.Spec = newService.Spec
+			err := r.Update(ctx, &foundService)
+			if err != nil {
+				r.logger.Error(err, "failed to update service")
+				return subreconciler.RequeueWithError(err)
+			}
+		}
+	}
+	return subreconciler.ContinueReconciling()
+}
 func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
 
 	newDeployment := createNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName, r.CustomConfig)
@@ -203,7 +242,7 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 			return subreconciler.RequeueWithError(err)
 		}
 		r.logger.Info("created deployment")
-
+		r.deploymentLabel = newDeployment.Spec.Selector
 	} else if err != nil {
 		if err != nil {
 			r.logger.Error(err, "failed to fetch deployment")

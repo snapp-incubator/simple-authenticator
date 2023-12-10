@@ -14,4 +14,4 @@ spec:
   appPort: 8081
   appService: google.com
   adaptiveScale: false
-  authenticatorPort: 8080
+  authenticatorPort: 8082
