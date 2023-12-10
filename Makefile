@@ -28,8 +28,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# snappcloud.io/basicauthenticator-bundle:$VERSION and snappcloud.io/basicauthenticator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= snappcloud.io/basicauthenticator
+# snappcloud.io/simpleauthenticator-bundle:$VERSION and snappcloud.io/simpleauthenticator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= snappcloud.io/simpleauthenticator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -299,4 +299,4 @@ $(HELMIFY): $(LOCALBIN)
 	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@latest
 
 helm: manifests kustomize helmify
-	$(KUSTOMIZE) build config/default | $(HELMIFY) deploy/charts/simple-authenticator
+	$(KUSTOMIZE) build config/default | $(HELMIFY) charts/simple-authenticator

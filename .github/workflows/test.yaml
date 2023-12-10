@@ -48,7 +48,7 @@ jobs:
 
       - name: Wait for basic operator to be ready
         run: |
-          kubectl wait --for=condition=available --timeout=300s deployment.apps/basicauthenticator-controller-manager -n basicauthenticator-system
-          kubectl wait --for=condition=ContainersReady --timeout=300s pods -n basicauthenticator-system --selector=control-plane=controller-manager
+          kubectl wait --for=condition=available --timeout=300s deployment.apps/simpleauthenticator-controller-manager -n simpleauthenticator-system
+          kubectl wait --for=condition=ContainersReady --timeout=300s pods -n simpleauthenticator-system --selector=control-plane=controller-manager
       - name: Run e2e test
         run: make e2e-test

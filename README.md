@@ -1,4 +1,4 @@
-# basicauthenticator
+# simpleauthenticator
 // TODO(user): Add simple overview of use/purpose
 
 ## Description
