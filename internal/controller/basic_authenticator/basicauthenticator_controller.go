@@ -23,6 +23,7 @@ import (
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,6 +42,7 @@ type BasicAuthenticatorReconciler struct {
 	configMapName               string
 	credentialName              string
 	basicAuthenticatorNamespace string
+	deploymentLabel             *v1.LabelSelector
 	logger                      logr.Logger
 }
 
@@ -72,6 +74,7 @@ func (r *BasicAuthenticatorReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Owns(&appv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
+		Owns(&corev1.Service{}).
 		Watches(
 			&source.Kind{Type: &appv1.Deployment{}},
 			handler.EnqueueRequestsFromMapFunc(r.findExternallyManagedDeployments),

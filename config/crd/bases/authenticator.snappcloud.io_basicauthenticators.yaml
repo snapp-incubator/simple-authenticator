@@ -100,6 +100,9 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
+              serviceType:
+                default: ClusterIP
+                type: string
               type:
                 description: Type is used to determine that nginx should be sidercar
                   or deployment
