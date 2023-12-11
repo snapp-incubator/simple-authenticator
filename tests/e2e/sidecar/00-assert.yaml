@@ -4,5 +4,5 @@ metadata:
   name: curl-deployment
   labels:
     foo: bar
-  annotations:
-    basic.authenticator.inject/revision: "1"
+  finalizers:
+    - basicauthenticator.snappcloud.io/finalizer
