@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 30
+commands:
+  - script: |
+      count=$(kubectl get cm,deploy,secret,basicauthenticators.authenticator.snappcloud.io -n cleanup | grep basicauthenticator-sample-deployment | wc -l)
+      if [ "$count" -gt 0 ]; then
+        echo "Resources exist. Count: $count"
+        exit 2
+      fi
+      exit 0

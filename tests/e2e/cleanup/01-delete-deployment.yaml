@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: authenticator.snappcloud.io/v1alpha1
+    kind: BasicAuthenticator
+    name: basicauthenticator-sample-deployment
+    namespace: cleanup

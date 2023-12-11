@@ -19,10 +19,12 @@ package basic_authenticator
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/opdev/subreconciler"
 	authenticatorv1alpha1 "github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,6 +61,19 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 	r.logger.Info("reconcile triggered")
 	r.logger.Info(req.String())
 	r.initVars(req)
+
+	basicAuthenticator := &authenticatorv1alpha1.BasicAuthenticator{}
+	switch err := r.Get(ctx, req.NamespacedName, basicAuthenticator); {
+	case errors.IsNotFound(err):
+		return r.Cleanup(ctx, req)
+	case err != nil:
+		r.logger.Error(err, "failed to fetch object")
+		return subreconciler.Evaluate(subreconciler.Requeue())
+	default:
+		if basicAuthenticator.ObjectMeta.DeletionTimestamp != nil {
+			return r.Cleanup(ctx, req)
+		}
+	}
 	return r.Provision(ctx, req)
 }
 

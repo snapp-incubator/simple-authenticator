@@ -1,0 +1,30 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 10
+commands:
+  - script: |
+      count=$(kubectl get cm,deploy,secret,basicauthenticators.authenticator.snappcloud.io,svc -n cleanup | grep basicauthenticator-sample-sidecar | wc -l)
+      if [ "$count" -gt 0 ]; then
+        echo "Resources exist. Count: $count"
+        exit 1
+      fi
+      exit 0
+  - script: |
+      deployment_name="curl-deployment"
+      namespace="cleanup"
+      
+      deployment_yaml=$(kubectl get deployment "$deployment_name" -n "$namespace" -o yaml)
+      
+      if [ -z "$deployment_yaml" ]; then
+        echo "Error: Deployment not found."
+        exit 1
+      fi
+      
+      if echo "$deployment_yaml" | grep -q "basicauthenticator.snappcloud.io/name" &&
+        echo "$deployment_yaml" | grep -q "basicauthenticator-sample-sidecar"; then
+        echo "labels and configs exist in the deployment YAML."
+        exit 1
+      else
+        echo "successfully deleted"
+        exit 0
+      fi
