@@ -65,7 +65,6 @@ func (r *BasicAuthenticatorReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *BasicAuthenticatorReconciler) initVars(request ctrl.Request) {
 	r.basicAuthenticatorNamespace = request.Namespace
 	//configmap name and credential name's value would be set in reconcile loop
-
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -75,6 +74,7 @@ func (r *BasicAuthenticatorReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Owns(&appv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
+		Owns(&corev1.Service{}).
 		Watches(
 			&source.Kind{Type: &appv1.Deployment{}},
 			handler.EnqueueRequestsFromMapFunc(r.findExternallyManagedDeployments),

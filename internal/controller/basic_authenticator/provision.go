@@ -244,10 +244,8 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 		r.logger.Info("created deployment")
 		r.deploymentLabel = newDeployment.Spec.Selector
 	} else if err != nil {
-		if err != nil {
-			r.logger.Error(err, "failed to fetch deployment")
-			return subreconciler.RequeueWithError(err)
-		}
+		r.logger.Error(err, "failed to fetch deployment")
+		return subreconciler.RequeueWithError(err)
 	} else {
 		//update deployment
 		targetReplica := newDeployment.Spec.Replicas
