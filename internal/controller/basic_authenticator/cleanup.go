@@ -16,6 +16,7 @@ import (
 func (r *BasicAuthenticatorReconciler) Cleanup(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Do the actual reconcile work
 	subRecs := []subreconciler.FnWithRequest{
+		r.setDeletionStatus,
 		r.removeInjectedContainers,
 		r.removeCleanupFinalizer,
 	}
@@ -28,7 +29,19 @@ func (r *BasicAuthenticatorReconciler) Cleanup(ctx context.Context, req ctrl.Req
 
 	return subreconciler.Evaluate(subreconciler.DoNotRequeue())
 }
+func (r *BasicAuthenticatorReconciler) setDeletionStatus(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+		return r, err
+	}
+	basicAuthenticator.Status.State = StatusDeleting
 
+	if err := r.Update(ctx, basicAuthenticator); err != nil {
+		r.logger.Error(err, "Failed to update status while cleaning")
+		return subreconciler.RequeueWithError(err)
+	}
+	return subreconciler.ContinueReconciling()
+}
 func (r *BasicAuthenticatorReconciler) removeInjectedContainers(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 

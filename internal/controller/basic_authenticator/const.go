@@ -1,17 +1,15 @@
 package basic_authenticator
 
 const (
-	nginxDefaultImageAddress               = "nginx:1.25.3"
-	nginxDefaultContainerName              = "nginx"
-	basicAuthenticatorNameLabel            = "basicauthenticator.snappcloud.io/name"
-	basicAuthenticatorSecretNameAnnotation = "basicauthenticator.snappcloud.io/secret"
-	basicAuthenticatorConfigNameAnnotation = "basicauthenticator.snappcloud.io/config"
-	basicAuthenticatorFinalizer            = "basicauthenticator.snappcloud.io/finalizer"
-	ExternallyManaged                      = "basicauthenticator.snappcloud.io/externally.managed"
-	ConfigMountPath                        = "/etc/nginx/conf.d"
-	SecretMountDir                         = "/etc/secret"
-	SecretMountPath                        = "/etc/secret/htpasswd"
-	SecretHtpasswdField                    = "htpasswd"
+	nginxDefaultImageAddress    = "nginx:1.25.3"
+	nginxDefaultContainerName   = "nginx"
+	basicAuthenticatorNameLabel = "basicauthenticator.snappcloud.io/name"
+	basicAuthenticatorFinalizer = "basicauthenticator.snappcloud.io/finalizer"
+	ExternallyManaged           = "basicauthenticator.snappcloud.io/externally.managed"
+	ConfigMountPath             = "/etc/nginx/conf.d"
+	SecretMountDir              = "/etc/secret"
+	SecretMountPath             = "/etc/secret/htpasswd"
+	SecretHtpasswdField         = "htpasswd"
 	//TODO: maybe using better templating?
 	template = `server {
 	listen AUTHENTICATOR_PORT;

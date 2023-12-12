@@ -20,11 +20,13 @@ import (
 func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Do the actual reconcile work
 	subProvisioner := []subreconciler.FnWithRequest{
+		r.setReconcilingStatus,
 		r.addCleanupFinalizer,
 		r.ensureSecret,
 		r.ensureConfigmap,
 		r.ensureDeployment,
 		r.ensureService,
+		r.setAvailableStatus,
 	}
 	for _, provisioner := range subProvisioner {
 		result, err := provisioner(ctx, req)
@@ -34,6 +36,20 @@ func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.R
 	}
 
 	return subreconciler.Evaluate(subreconciler.DoNotRequeue())
+}
+func (r *BasicAuthenticatorReconciler) setReconcilingStatus(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
+
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+		return r, err
+	}
+
+	basicAuthenticator.Status.State = StatusReconciling
+	if err := r.Update(ctx, basicAuthenticator); err != nil {
+		r.logger.Error(err, "failed to update status")
+		return subreconciler.Requeue()
+	}
+	return subreconciler.ContinueReconciling()
 }
 
 func (r *BasicAuthenticatorReconciler) addCleanupFinalizer(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
@@ -236,6 +252,22 @@ func (r *BasicAuthenticatorReconciler) ensureService(ctx context.Context, req ct
 	}
 	return subreconciler.ContinueReconciling()
 }
+
+func (r *BasicAuthenticatorReconciler) setAvailableStatus(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
+
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+		return r, err
+	}
+
+	basicAuthenticator.Status.State = StatusAvailable
+	if err := r.Update(ctx, basicAuthenticator); err != nil {
+		r.logger.Error(err, "failed to update status")
+		return subreconciler.Requeue()
+	}
+	return subreconciler.ContinueReconciling()
+}
+
 func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
 
 	newDeployment := createNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName, r.CustomConfig)
