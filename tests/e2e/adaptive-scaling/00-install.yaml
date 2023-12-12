@@ -10,7 +10,7 @@ metadata:
   name: basicauthenticator-sample
 spec:
   type: deployment
-  replicas: 1
+  replicas: 2
   appPort: 8080
   appService: my-service
   adaptiveScale: true
@@ -36,6 +36,7 @@ spec:
       containers:
         - name: curl-container
           image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
           command: ["sleep", "infinity"]
 ---
 apiVersion: v1

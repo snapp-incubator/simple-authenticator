@@ -304,6 +304,7 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 			replica, err := r.acquireTargetReplica(ctx, basicAuthenticator)
 			if err != nil {
 				r.logger.Error(err, "failed to acquire target replica using adaptiveScale")
+				return subreconciler.RequeueWithError(err)
 			}
 			targetReplica = &replica
 		}
@@ -313,8 +314,7 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 
 			foundDeployment.Spec = newDeployment.Spec
 			foundDeployment.Spec.Replicas = targetReplica
-
-			err := r.Update(ctx, foundDeployment)
+			err = r.Update(ctx, foundDeployment)
 			if err != nil {
 				r.logger.Error(err, "failed to update deployment")
 				return subreconciler.RequeueWithError(err)
@@ -322,7 +322,7 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 		}
 		r.logger.Info("updating ready replicas")
 		basicAuthenticator.Status.ReadyReplicas = int(foundDeployment.Status.ReadyReplicas)
-		err := r.Status().Update(ctx, basicAuthenticator)
+		err = r.Status().Update(ctx, basicAuthenticator)
 		if err != nil {
 			r.logger.Error(err, "failed to update basic authenticator status")
 			return subreconciler.RequeueWithError(err)

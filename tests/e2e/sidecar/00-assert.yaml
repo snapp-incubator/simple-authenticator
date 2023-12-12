@@ -4,5 +4,4 @@ metadata:
   name: curl-deployment
   labels:
     foo: bar
-  finalizers:
-    - basicauthenticator.snappcloud.io/finalizer
+    basicauthenticator.snappcloud.io/name: basicauthenticator-sidecar
