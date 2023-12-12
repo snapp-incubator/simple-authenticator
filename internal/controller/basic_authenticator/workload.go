@@ -27,7 +27,7 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 	replicas := int32(basicAuthenticator.Spec.Replicas)
 	authenticatorPort := int32(basicAuthenticator.Spec.AuthenticatorPort)
 
-	basicAuthLabels := map[string]string{"app": deploymentName}
+	basicAuthLabels := map[string]string{"app": deploymentName, basicAuthenticatorNameLabel: basicAuthenticator.Name}
 
 	//TODO: mount secret as volume
 	deploy := &appsv1.Deployment{
@@ -97,7 +97,7 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 func createNginxConfigmap(basicAuthenticator *v1alpha1.BasicAuthenticator) *corev1.ConfigMap {
 	configmapName := random_generator.GenerateRandomName(basicAuthenticator.Name, "configmap")
 	basicAuthLabels := map[string]string{
-		"app": basicAuthenticator.Name,
+		basicAuthenticatorNameLabel: basicAuthenticator.Name,
 	}
 	nginxConf := fillTemplate(template, SecretMountPath, basicAuthenticator)
 	data := map[string]string{
@@ -140,11 +140,15 @@ func createCredentials(basicAuthenticator *v1alpha1.BasicAuthenticator) (*corev1
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate salt")
 	}
+	basicAuthLabels := map[string]string{
+		basicAuthenticatorNameLabel: basicAuthenticator.Name,
+	}
 	secretName := random_generator.GenerateRandomName(basicAuthenticator.Name, salt)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: basicAuthenticator.Namespace,
+			Labels:    basicAuthLabels,
 		},
 		Data: map[string][]byte{
 			"username": []byte(username),
@@ -157,10 +161,14 @@ func createNginxService(ctx context.Context, basicAuthenticator *v1alpha1.BasicA
 	serviceName := fmt.Sprintf("%s-svc", basicAuthenticator.Name)
 	serviceType := getServiceType(basicAuthenticator.Spec.ServiceType)
 	targetPort := intstr.IntOrString{Type: intstr.Int, IntVal: int32(basicAuthenticator.Spec.AuthenticatorPort)}
+	basicAuthLabel := map[string]string{
+		basicAuthenticatorNameLabel: basicAuthenticator.Name,
+	}
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: basicAuthenticator.Namespace,
+			Labels:    basicAuthLabel,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: selector.MatchLabels,
@@ -192,53 +200,52 @@ func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticat
 	resultDeployments := make([]*appsv1.Deployment, 0)
 
 	for _, deployment := range deploymentList.Items {
-		// we can use revision number to update container config
-		_, isInjected := deployment.ObjectMeta.Annotations["basic.authenticator.inject/revision"]
-		if isInjected {
-			continue
+		if deployment.Labels == nil {
+			deployment.Labels = make(map[string]string)
 		}
-		deployment.ObjectMeta.Annotations = map[string]string{
-			"basic.authenticator.inject/revision": "1",
-		}
-
-		deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, corev1.Container{
-			Name:  nginxContainerName,
-			Image: nginxImageAddress,
-			Ports: []corev1.ContainerPort{
-				{
-					ContainerPort: authenticatorPort,
-				},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      configMapName,
-					MountPath: ConfigMountPath,
-				},
-				{
-					Name:      credentialName,
-					MountPath: SecretMountDir,
-					SubPath:   SecretHtpasswdField,
-				},
-			},
-		})
-		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: configMapName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: configMapName,
+		deployment.Labels[basicAuthenticatorNameLabel] = basicAuthenticator.Name
+		idx := getContainerIndex(deployment.Spec.Template.Spec.Containers, nginxContainerName)
+		if idx == -1 { // meaning its the first time creating container
+			deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, corev1.Container{
+				Name:  nginxContainerName,
+				Image: nginxImageAddress,
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: authenticatorPort,
 					},
 				},
-			},
-		})
-		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: credentialName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: credentialName,
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      configMapName,
+						MountPath: ConfigMountPath,
+					},
+					{
+						Name:      credentialName,
+						MountPath: SecretMountDir,
+						SubPath:   SecretHtpasswdField,
+					},
 				},
-			},
-		})
+			})
+			deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
+				Name: configMapName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: configMapName,
+						},
+					},
+				},
+			})
+			deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
+				Name: credentialName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: credentialName,
+					},
+				},
+			})
+		} //TODO: handling config change later (idx >=0)
+
 		resultDeployments = append(resultDeployments, &deployment)
 	}
 	return resultDeployments, nil
@@ -268,4 +275,13 @@ func getServiceType(serviceType string) corev1.ServiceType {
 	default:
 		return corev1.ServiceTypeClusterIP
 	}
+}
+
+func getContainerIndex(containers []corev1.Container, name string) int {
+	for idx, container := range containers {
+		if container.Name == name {
+			return idx
+		}
+	}
+	return -1
 }

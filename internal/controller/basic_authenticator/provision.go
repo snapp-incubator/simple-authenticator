@@ -13,16 +13,20 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // Provision provisions the required resources for the basicAuthenticator object
 func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Do the actual reconcile work
 	subProvisioner := []subreconciler.FnWithRequest{
+		r.setReconcilingStatus,
+		r.addCleanupFinalizer,
 		r.ensureSecret,
 		r.ensureConfigmap,
 		r.ensureDeployment,
 		r.ensureService,
+		r.setAvailableStatus,
 	}
 	for _, provisioner := range subProvisioner {
 		result, err := provisioner(ctx, req)
@@ -32,6 +36,37 @@ func (r *BasicAuthenticatorReconciler) Provision(ctx context.Context, req ctrl.R
 	}
 
 	return subreconciler.Evaluate(subreconciler.DoNotRequeue())
+}
+func (r *BasicAuthenticatorReconciler) setReconcilingStatus(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
+
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+		return subreconciler.RequeueWithError(err)
+	}
+
+	basicAuthenticator.Status.State = StatusReconciling
+	if err := r.Update(ctx, basicAuthenticator); err != nil {
+		r.logger.Error(err, "failed to update status")
+		return subreconciler.Requeue()
+	}
+	return subreconciler.ContinueReconciling()
+}
+
+func (r *BasicAuthenticatorReconciler) addCleanupFinalizer(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
+
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+		return subreconciler.RequeueWithError(err)
+	}
+	if !controllerutil.ContainsFinalizer(basicAuthenticator, basicAuthenticatorFinalizer) {
+		if objUpdated := controllerutil.AddFinalizer(basicAuthenticator, basicAuthenticatorFinalizer); objUpdated {
+			if err := r.Update(ctx, basicAuthenticator); err != nil {
+				r.logger.Error(err, "failed to add basicAuthenticator finalizer")
+				return subreconciler.Requeue()
+			}
+		}
+	}
+	return subreconciler.ContinueReconciling()
 }
 
 func (r *BasicAuthenticatorReconciler) getLatestBasicAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator) (*ctrl.Result, error) {
@@ -51,7 +86,7 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 	r.credentialName = basicAuthenticator.Spec.CredentialsSecretRef
 	var credentialSecret corev1.Secret
@@ -118,7 +153,7 @@ func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req 
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 
 	authenticatorConfig := createNginxConfigmap(basicAuthenticator)
@@ -160,7 +195,7 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 
 	if r.configMapName == "" {
@@ -182,7 +217,7 @@ func (r *BasicAuthenticatorReconciler) ensureService(ctx context.Context, req ct
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 	if r.deploymentLabel == nil {
 		return subreconciler.ContinueReconciling()
@@ -217,6 +252,22 @@ func (r *BasicAuthenticatorReconciler) ensureService(ctx context.Context, req ct
 	}
 	return subreconciler.ContinueReconciling()
 }
+
+func (r *BasicAuthenticatorReconciler) setAvailableStatus(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
+
+	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
+		return subreconciler.RequeueWithError(err)
+	}
+
+	basicAuthenticator.Status.State = StatusAvailable
+	if err := r.Update(ctx, basicAuthenticator); err != nil {
+		r.logger.Error(err, "failed to update status")
+		return subreconciler.Requeue()
+	}
+	return subreconciler.ContinueReconciling()
+}
+
 func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context.Context, req ctrl.Request, basicAuthenticator *v1alpha1.BasicAuthenticator, authenticatorConfigName, secretName string) (*ctrl.Result, error) {
 
 	newDeployment := createNginxDeployment(basicAuthenticator, authenticatorConfigName, secretName, r.CustomConfig)
@@ -253,6 +304,7 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 			replica, err := r.acquireTargetReplica(ctx, basicAuthenticator)
 			if err != nil {
 				r.logger.Error(err, "failed to acquire target replica using adaptiveScale")
+				return subreconciler.RequeueWithError(err)
 			}
 			targetReplica = &replica
 		}
@@ -262,8 +314,7 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 
 			foundDeployment.Spec = newDeployment.Spec
 			foundDeployment.Spec.Replicas = targetReplica
-
-			err := r.Update(ctx, foundDeployment)
+			err = r.Update(ctx, foundDeployment)
 			if err != nil {
 				r.logger.Error(err, "failed to update deployment")
 				return subreconciler.RequeueWithError(err)
@@ -271,7 +322,7 @@ func (r *BasicAuthenticatorReconciler) createDeploymentAuthenticator(ctx context
 		}
 		r.logger.Info("updating ready replicas")
 		basicAuthenticator.Status.ReadyReplicas = int(foundDeployment.Status.ReadyReplicas)
-		err := r.Status().Update(ctx, basicAuthenticator)
+		err = r.Status().Update(ctx, basicAuthenticator)
 		if err != nil {
 			r.logger.Error(err, "failed to update basic authenticator status")
 			return subreconciler.RequeueWithError(err)
@@ -287,10 +338,6 @@ func (r *BasicAuthenticatorReconciler) createSidecarAuthenticator(ctx context.Co
 		return subreconciler.RequeueWithError(err)
 	}
 	for _, deploy := range deploymentsToUpdate {
-		if err := ctrl.SetControllerReference(basicAuthenticator, deploy, r.Scheme); err != nil {
-			r.logger.Error(err, "failed to set injected deployment owner")
-			return subreconciler.RequeueWithError(err)
-		}
 		err := r.Update(ctx, deploy)
 		if err != nil {
 			r.logger.Error(err, "failed to update injected deployments")

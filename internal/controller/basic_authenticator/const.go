@@ -3,8 +3,7 @@ package basic_authenticator
 const (
 	nginxDefaultImageAddress    = "nginx:1.25.3"
 	nginxDefaultContainerName   = "nginx"
-	SecretAnnotation            = "authenticator.snappcloud.io/secret.name"
-	ConfigmapAnnotation         = "authenticator.snappcloud.io/configmap.name"
+	basicAuthenticatorNameLabel = "basicauthenticator.snappcloud.io/name"
 	basicAuthenticatorFinalizer = "basicauthenticator.snappcloud.io/finalizer"
 	ExternallyManaged           = "basicauthenticator.snappcloud.io/externally.managed"
 	ConfigMountPath             = "/etc/nginx/conf.d"
@@ -15,7 +14,6 @@ const (
 	template = `server {
 	listen AUTHENTICATOR_PORT;
 	location / {
-		resolver    8.8.8.8;
 		auth_basic	"basic authentication area";
 		auth_basic_user_file "FILE_PATH";
 		proxy_pass http://APP_SERVICE:APP_PORT;
@@ -25,4 +23,7 @@ const (
 		proxy_set_header X-Forwarded-Proto $scheme;
 	}
 }`
+	StatusAvailable   = "Available"
+	StatusReconciling = "Reconciling"
+	StatusDeleting    = "Deleting"
 )

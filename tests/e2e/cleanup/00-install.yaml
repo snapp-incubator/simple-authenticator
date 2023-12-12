@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cleanup
+---
 apiVersion: authenticator.snappcloud.io/v1alpha1
 kind: BasicAuthenticator
 metadata:
@@ -7,24 +12,41 @@ metadata:
     app.kubernetes.io/part-of: basicauthenticator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: basicauthenticator
-  name: basicauthenticator-sample
+  name: basicauthenticator-sample-deployment
+  namespace: cleanup
 spec:
   type: deployment
   replicas: 2
+  selector:
+    matchLabels:
+      foo: bar
   appPort: 8080
-  appService: my-service
-  adaptiveScale: true
+  appService: google.com
+  adaptiveScale: false
+  authenticatorPort: 8080
+---
+apiVersion: authenticator.snappcloud.io/v1alpha1
+kind: BasicAuthenticator
+metadata:
+  name: basicauthenticator-sample-sidecar
+  namespace: cleanup
+spec:
+  type: sidecar
+  selector:
+    matchLabels:
+      foo: bar
+  appPort: 8080
   authenticatorPort: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: curl-deployment
+  namespace: cleanup
   labels:
-    test: fal
     foo: bar
 spec:
-  replicas: 4
+  replicas: 1
   selector:
     matchLabels:
       foo: bar
@@ -36,18 +58,4 @@ spec:
       containers:
         - name: curl-container
           image: curlimages/curl:latest
-          imagePullPolicy: IfNotPresent
           command: ["sleep", "infinity"]
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service
-spec:
-  selector:
-    foo: bar
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
-  type: ClusterIP
