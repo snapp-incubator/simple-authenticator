@@ -15,12 +15,12 @@ import (
 
 func (r *BasicAuthenticatorReconciler) Cleanup(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Do the actual reconcile work
-	subProvisioner := []subreconciler.FnWithRequest{
+	subRecs := []subreconciler.FnWithRequest{
 		r.removeInjectedContainers,
 		r.removeCleanupFinalizer,
 	}
-	for _, provisioner := range subProvisioner {
-		result, err := provisioner(ctx, req)
+	for _, rec := range subRecs {
+		result, err := rec(ctx, req)
 		if subreconciler.ShouldHaltOrRequeue(result, err) {
 			return subreconciler.Evaluate(result, err)
 		}
