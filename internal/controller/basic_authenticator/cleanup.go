@@ -32,7 +32,7 @@ func (r *BasicAuthenticatorReconciler) Cleanup(ctx context.Context, req ctrl.Req
 func (r *BasicAuthenticatorReconciler) setDeletionStatus(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 	basicAuthenticator.Status.State = StatusDeleting
 
@@ -46,7 +46,7 @@ func (r *BasicAuthenticatorReconciler) removeInjectedContainers(ctx context.Cont
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 
 	if basicAuthenticator.Spec.Type != "sidecar" {
@@ -88,7 +88,7 @@ func (r *BasicAuthenticatorReconciler) removeInjectedContainers(ctx context.Cont
 func (r *BasicAuthenticatorReconciler) removeCleanupFinalizer(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 	if controllerutil.ContainsFinalizer(basicAuthenticator, basicAuthenticatorFinalizer) {
 		if ok := controllerutil.RemoveFinalizer(basicAuthenticator, basicAuthenticatorFinalizer); !ok {

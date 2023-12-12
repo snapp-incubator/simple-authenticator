@@ -41,7 +41,7 @@ func (r *BasicAuthenticatorReconciler) setReconcilingStatus(ctx context.Context,
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 
 	basicAuthenticator.Status.State = StatusReconciling
@@ -56,7 +56,7 @@ func (r *BasicAuthenticatorReconciler) addCleanupFinalizer(ctx context.Context, 
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 	if !controllerutil.ContainsFinalizer(basicAuthenticator, basicAuthenticatorFinalizer) {
 		if objUpdated := controllerutil.AddFinalizer(basicAuthenticator, basicAuthenticatorFinalizer); objUpdated {
@@ -86,7 +86,7 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 	r.credentialName = basicAuthenticator.Spec.CredentialsSecretRef
 	var credentialSecret corev1.Secret
@@ -153,7 +153,7 @@ func (r *BasicAuthenticatorReconciler) ensureConfigmap(ctx context.Context, req 
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 
 	authenticatorConfig := createNginxConfigmap(basicAuthenticator)
@@ -195,7 +195,7 @@ func (r *BasicAuthenticatorReconciler) ensureDeployment(ctx context.Context, req
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 
 	if r.configMapName == "" {
@@ -217,7 +217,7 @@ func (r *BasicAuthenticatorReconciler) ensureService(ctx context.Context, req ct
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 	if r.deploymentLabel == nil {
 		return subreconciler.ContinueReconciling()
@@ -257,7 +257,7 @@ func (r *BasicAuthenticatorReconciler) setAvailableStatus(ctx context.Context, r
 	basicAuthenticator := &v1alpha1.BasicAuthenticator{}
 
 	if r, err := r.getLatestBasicAuthenticator(ctx, req, basicAuthenticator); subreconciler.ShouldHaltOrRequeue(r, err) {
-		return r, err
+		return subreconciler.RequeueWithError(err)
 	}
 
 	basicAuthenticator.Status.State = StatusAvailable
