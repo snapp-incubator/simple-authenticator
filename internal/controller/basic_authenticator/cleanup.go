@@ -69,11 +69,6 @@ func (r *BasicAuthenticatorReconciler) removeInjectedContainers(ctx context.Cont
 				}
 			}
 		}
-
-		if err := r.Update(ctx, deploy); err != nil {
-			r.logger.Error(err, "failed to update cleanup deployments")
-			return subreconciler.RequeueWithError(err)
-		}
 	}
 	return subreconciler.ContinueReconciling()
 }
@@ -84,14 +79,14 @@ func (r *BasicAuthenticatorReconciler) removeCleanupFinalizer(ctx context.Contex
 	}
 	if controllerutil.ContainsFinalizer(basicAuthenticator, basicAuthenticatorFinalizer) {
 		if ok := controllerutil.RemoveFinalizer(basicAuthenticator, basicAuthenticatorFinalizer); !ok {
-			r.logger.Error(errors.New("finalizer not updated"), "Failed to remove finalizer for Memcached")
+			r.logger.Error(errors.New("finalizer not updated"), "Failed to remove finalizer for BasicAuthenticator")
 			return subreconciler.Requeue()
 		}
+	}
 
-		if err := r.Update(ctx, basicAuthenticator); err != nil {
-			r.logger.Error(err, "Failed to remove finalizer for Memcached")
-			return subreconciler.RequeueWithError(err)
-		}
+	if err := r.Update(ctx, basicAuthenticator); err != nil {
+		r.logger.Error(err, "Failed to remove finalizer for BasicAuthenticator")
+		return subreconciler.RequeueWithError(err)
 	}
 	return subreconciler.ContinueReconciling()
 }
@@ -144,9 +139,6 @@ func getTargetSecretName(ctx context.Context, basicAuthenticator *v1alpha1.Basic
 	return resultSecrets, nil
 }
 func removeInjectedResources(deployments []*appsv1.Deployment, secrets []string, configmap []string) []*appsv1.Deployment {
-	targetSecret := secrets[0] // there should always be one secret
-	targetCm := configmap[0]   // there should always be one configmap
-
 	for _, deploy := range deployments {
 		containers := make([]v1.Container, 0)
 		for _, container := range deploy.Spec.Template.Spec.Containers {
@@ -157,8 +149,7 @@ func removeInjectedResources(deployments []*appsv1.Deployment, secrets []string,
 		deploy.Spec.Template.Spec.Containers = containers
 		volumes := make([]v1.Volume, 0)
 		for _, vol := range deploy.Spec.Template.Spec.Volumes {
-
-			if vol.Name != targetSecret && vol.Name != targetCm {
+			if !existsInList(secrets, vol.Name) && !existsInList(configmap, vol.Name) {
 				volumes = append(volumes, vol)
 			}
 		}
@@ -168,4 +159,13 @@ func removeInjectedResources(deployments []*appsv1.Deployment, secrets []string,
 		}
 	}
 	return deployments
+}
+
+func existsInList(strList []string, targetStr string) bool {
+	for _, val := range strList {
+		if val == targetStr {
+			return true
+		}
+	}
+	return false
 }

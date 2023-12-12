@@ -307,18 +307,11 @@ func (r *BasicAuthenticatorReconciler) createSidecarAuthenticator(ctx context.Co
 	}
 	for _, deploy := range deploymentsToUpdate {
 		if !controllerutil.ContainsFinalizer(deploy, basicAuthenticatorFinalizer) {
-			if objUpdated := controllerutil.AddFinalizer(deploy, basicAuthenticatorFinalizer); objUpdated {
-				if err := r.Update(ctx, deploy); err != nil {
-					r.logger.Error(err, "failed to update injected deployment to add finalizer")
-					return subreconciler.Requeue()
-				}
-
-				if err = r.Get(ctx, types.NamespacedName{Namespace: deploy.Namespace, Name: deploy.Name}, deploy); err != nil {
-					r.logger.Error(err, "failed to refetch deploy")
-					return subreconciler.RequeueWithError(err)
-				}
+			if objUpdated := controllerutil.AddFinalizer(deploy, basicAuthenticatorFinalizer); !objUpdated {
+				return subreconciler.Requeue()
 			}
 		}
+
 		err := r.Update(ctx, deploy)
 		if err != nil {
 			r.logger.Error(err, "failed to update injected deployments")
