@@ -74,13 +74,9 @@ func (r *BasicAuthenticatorReconciler) removeInjectedContainers(ctx context.Cont
 
 	cleanupDeployments := removeInjectedResources(deployments, secrets, configmaps)
 	for _, deploy := range cleanupDeployments {
-		if controllerutil.ContainsFinalizer(deploy, basicAuthenticatorFinalizer) {
-			if objUpdated := controllerutil.RemoveFinalizer(deploy, basicAuthenticatorFinalizer); objUpdated {
-				if err := r.Update(ctx, deploy); err != nil {
-					r.logger.Error(err, "failed to add basicAuthenticator to injected deployment")
-					return subreconciler.RequeueWithError(err)
-				}
-			}
+		if err := r.Update(ctx, deploy); err != nil {
+			r.logger.Error(err, "failed to add update cleaned up deployments")
+			return subreconciler.RequeueWithError(err)
 		}
 	}
 	return subreconciler.ContinueReconciling()
