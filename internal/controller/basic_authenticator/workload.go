@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/snapp-incubator/simple-authenticator/api/v1alpha1"
 	"github.com/snapp-incubator/simple-authenticator/internal/config"
-	"github.com/snapp-incubator/simple-authenticator/pkg/md5"
+	"github.com/snapp-incubator/simple-authenticator/pkg/htpasswd"
 	"github.com/snapp-incubator/simple-authenticator/pkg/random_generator"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +62,6 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 								{
 									Name:      credentialName,
 									MountPath: SecretMountDir,
-									SubPath:   SecretHtpasswdField,
 								},
 							},
 						},
@@ -83,6 +82,12 @@ func createNginxDeployment(basicAuthenticator *v1alpha1.BasicAuthenticator, conf
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName: credentialName,
+									Items: []corev1.KeyToPath{
+										{
+											Key:  SecretHtpasswdField,
+											Path: SecretHtpasswdField,
+										},
+									},
 								},
 							},
 						},
@@ -123,7 +128,15 @@ func updateHtpasswdField(secret *corev1.Secret) error {
 	if !ok {
 		return defaultError.New("password not found in secret")
 	}
-	htpasswdString := fmt.Sprintf("%s:%s", string(username), md5.MD5Hash(string(password)))
+	salt, err := random_generator.GenerateRandomString(8)
+	if err != nil {
+		return errors.Wrap(err, "failed to generate salt")
+	}
+	hashedPassword, err := htpasswd.ApacheHash(string(password), salt)
+	if err != nil {
+		return err
+	}
+	htpasswdString := fmt.Sprintf("%s:%s", string(username), hashedPassword)
 	secret.Data["htpasswd"] = []byte(htpasswdString)
 	return nil
 }
@@ -222,7 +235,6 @@ func injector(ctx context.Context, basicAuthenticator *v1alpha1.BasicAuthenticat
 					{
 						Name:      credentialName,
 						MountPath: SecretMountDir,
-						SubPath:   SecretHtpasswdField,
 					},
 				},
 			})

@@ -136,7 +136,7 @@ func (r *BasicAuthenticatorReconciler) ensureSecret(ctx context.Context, req ctr
 		}
 		err = updateHtpasswdField(&credentialSecret)
 		if err != nil {
-			r.logger.Error(err, "failed to add secret to include htpasswd field", "credential secret", credentialSecret)
+			r.logger.Error(err, "failed to add secret to include htpasswd field")
 			return subreconciler.RequeueWithError(err)
 		}
 		err = r.Update(ctx, &credentialSecret)
