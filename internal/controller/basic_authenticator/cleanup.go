@@ -163,6 +163,9 @@ func removeInjectedResources(deployments []*appsv1.Deployment, secrets []string,
 			}
 		}
 		deploy.Spec.Template.Spec.Volumes = volumes
+		if deploy.Annotations != nil {
+			delete(deploy.Annotations, ExternallyManaged)
+		}
 		if deploy.Labels != nil {
 			delete(deploy.Labels, basicAuthenticatorNameLabel)
 		}
