@@ -58,7 +58,7 @@ func main() {
 	var customConfigPath string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&customConfigPath, "custom-config-path", "./custom/config.yaml", "the path to custom config.")
+	flag.StringVar(&customConfigPath, "custom-config-path", "", "the path to custom config.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -69,12 +69,19 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	customConfig, err := config.InitConfig(customConfigPath)
-	if err != nil {
-		setupLog.Info("custom config not loaded")
-	} else {
-		authenticatorv1alpha1.ValidationTimeout = time.Second * time.Duration(customConfig.WebhookConf.ValidationTimeoutSecond)
+
+	var customConfig *config.CustomConfig
+	if customConfigPath != "" {
+		setupLog.Info(customConfigPath)
+		tmpConf, err := config.InitConfig(customConfigPath)
+		if err != nil {
+			setupLog.Error(err, "failed to load custom config")
+		} else {
+			customConfig = tmpConf
+			authenticatorv1alpha1.ValidationTimeout = time.Second * time.Duration(customConfig.WebhookConf.ValidationTimeoutSecond)
+		}
 	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
