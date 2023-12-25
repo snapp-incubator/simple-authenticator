@@ -1,6 +1,8 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+)
 
 type CustomConfig struct {
 	WebserverConf WebserverConfig `mapstructure:"webserver"`
@@ -17,7 +19,7 @@ type WebhookConfig struct {
 }
 
 func InitConfig(configPath string) (*CustomConfig, error) {
-	viper.AddConfigPath(configPath)
+	viper.SetConfigFile(configPath)
 	viper.SetConfigType("yaml")
 	err := viper.ReadInConfig()
 	if err != nil {
