@@ -1,93 +1,66 @@
-# simpleauthenticator
-// TODO(user): Add simple overview of use/purpose
+# Simple Authenticator
 
-## Description
-Kind of an authentication offloader
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+## Introduction
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+The Simple Authenticator is a Kubernetes-based tool designed to streamline and enhance basic authentication within a cluster. It serves as a crucial component for managing microservices' security and performance efficiently.
 
-```sh
-kubectl apply -f config/samples/
-```
+### Purpose
 
-2. Build and push your image to the location specified by `IMG`:
+In Kubernetes environments, effective authentication is essential, especially when dealing with internal traffic between microservices. The Simple Authenticator simplifies this process, providing a straightforward solution for handling West-East Traffic within the cluster.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/basicauthenticator:tag
-```
+### Features
 
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+- **NGINX Deployment:** Supports both sidecar and standalone deployment of NGINX for secure authentication.
+- **Adaptive Scale Support:** Dynamically scales based on the number of pods in the targeted service, optimizing resource utilization.
+- **Plain Username and Password Authentication:** Simplifies credential management by transforming secrets to NGINX preferences automatically.
 
-```sh
-make deploy IMG=<some-registry>/basicauthenticator:tag
-```
+The Simple Authenticator ensures that authentication between microservices is both secure and efficient, contributing to a robust and well-architected Kubernetes environment.
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+### Installation
+# Installation of Simple Authenticator
 
-```sh
-make uninstall
-```
+## Using Makefile
+Deploy Simple Authenticator using the Makefile:
 
-### Undeploy controller
-UnDeploy the controller from the cluster:
+   ```sh
+   make deploy
+   ```
 
-```sh
-make undeploy
+## Using Helm
+Deploy Simple Authenticator using Helm:
+
+   ```sh
+   helm upgrade --install simple-authenticator oci://ghcr.io/snapp-incubator/simple-authenticator/helm-charts/simple-authenticator --version v0.1.8
+   ```
+
+## Using OLM (Operator Lifecycle Manager)
+All the operator releases are bundled and pushed to the [Snappcloud hub](https://github.com/snapp-incubator/snappcloud-hub) which is a hub for the catalog sources. Install using Operator Lifecycle Manager (OLM) by following these steps:
+1. Install [snappcloud hub catalog-source](https://github.com/snapp-incubator/snappcloud-hub/blob/main/catalog-source.yml)
+2. Apply the subscription manifest as shown below:
+```yaml
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: Subscription
+    metadata:
+      name: simple-authenticator
+      namespace: operators
+    spec:
+      channel: stable-v1
+      installPlanApproval: Automatic
+      name: simple-authenticator
+      source: snappcloud-hub-catalog
+      sourceNamespace: openshift-marketplace
+      config:
+        resources:
+          limits:
+            cpu: 2
+            memory: 2Gi
+          requests:
+            cpu: 1
+            memory: 1Gi
 ```
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
-which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+Contributions are warmly welcomed. Feel free to submit issues or pull requests.
 
 ## License
-
-Copyright 2023.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+This project is licensed under the [Apache License 2.0](https://github.com/snapp-incubator/s3-operator/blob/main/LICENSE).
