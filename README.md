@@ -6,8 +6,7 @@ The Simple Authenticator is a Kubernetes-based tool designed to streamline and e
 
 ### Purpose
 
-In Kubernetes environments, effective authentication is essential, especially when dealing with internal traffic between microservices. The Simple Authenticator simplifies this process, providing a straightforward solution for handling West-East Traffic within the cluster.
-
+In Kubernetes environments, effective authentication is essential, especially when dealing with internal traffic between microservices.
 ### Features
 
 - **NGINX Deployment:** Supports both sidecar and standalone deployment of NGINX for secure authentication.
@@ -16,7 +15,6 @@ In Kubernetes environments, effective authentication is essential, especially wh
 
 The Simple Authenticator ensures that authentication between microservices is both secure and efficient, contributing to a robust and well-architected Kubernetes environment.
 
-### Installation
 # Installation of Simple Authenticator
 
 ## Using Makefile
